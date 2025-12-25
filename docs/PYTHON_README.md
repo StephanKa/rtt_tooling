@@ -17,7 +17,7 @@ uv venv
 uv pip install -e ".[dev]"
 
 # Activate virtual environment
-source .venv/bin/activate  # On Linux/macOS
+source .venv/Scripts/activate  # On Linux/macOS
 # or
 .venv\Scripts\activate  # On Windows
 ```

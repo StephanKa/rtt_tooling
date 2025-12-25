@@ -9,5 +9,5 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
 echo "Running mypy type checker on Python scripts..."
-source .venv/bin/activate
+source .venv/Scripts/activate
 mypy scripts/ tests/ "$@"

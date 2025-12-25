@@ -9,5 +9,5 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
 echo "Running pytest on test suite..."
-source .venv/bin/activate
+source .venv/Scripts/activate
 pytest "$@"

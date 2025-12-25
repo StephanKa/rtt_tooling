@@ -200,11 +200,11 @@ class TraceAnalyzer:
 
         task_runtimes = defaultdict(int)  # Total execution time per task
         task_execution_count = defaultdict(int)  # Number of execution periods
-        task_min_duration = defaultdict(lambda: float('inf'))  # Shortest execution period
+        task_min_duration = defaultdict(lambda: float("inf"))  # Shortest execution period
         task_max_duration = defaultdict(int)  # Longest execution period
         current_task = None
         task_start_time = None
-        
+
         # Validation counters
         unmatched_in = 0
         unmatched_out = 0
@@ -215,10 +215,10 @@ class TraceAnalyzer:
                 if current_task is not None:
                     print(f"  Warning: Task 0x{current_task:08X} switched in without switching out", file=sys.stderr)
                     unmatched_in += 1
-                
+
                 current_task = event.handle
                 task_start_time = event.timestamp
-                
+
             elif event.event_name == "TASK_SWITCHED_OUT":
                 # Validation: Check if this matches the current active task
                 if current_task is None:
@@ -228,7 +228,7 @@ class TraceAnalyzer:
                     print(f"  Warning: Handle mismatch - active task 0x{current_task:08X} but switched out 0x{event.handle:08X}", file=sys.stderr)
                     # Still process the event for the handle that switched out
                     current_task = event.handle
-                
+
                 if current_task is not None and task_start_time is not None:
                     runtime = event.timestamp - task_start_time
                     if runtime < 0:
@@ -238,7 +238,7 @@ class TraceAnalyzer:
                         task_execution_count[current_task] += 1
                         task_min_duration[current_task] = min(task_min_duration[current_task], runtime)
                         task_max_duration[current_task] = max(task_max_duration[current_task], runtime)
-                
+
                 current_task = None
                 task_start_time = None
 
@@ -264,7 +264,7 @@ class TraceAnalyzer:
         # Calculate total runtime and trace duration
         total_runtime = sum(task_runtimes.values())
         trace_duration = self.events[-1].timestamp - self.events[0].timestamp
-        
+
         # Calculate CPU utilization
         cpu_utilization = (total_runtime / trace_duration * 100) if trace_duration > 0 else 0
 
@@ -285,9 +285,9 @@ class TraceAnalyzer:
             cpu_percent = (runtime / trace_duration) * 100 if trace_duration > 0 else 0
             exec_count = task_execution_count[handle]
             avg_time = self.parser.timestamp_to_seconds(runtime / exec_count) if exec_count > 0 else 0
-            min_time = self.parser.timestamp_to_seconds(task_min_duration[handle]) if task_min_duration[handle] != float('inf') else 0
+            min_time = self.parser.timestamp_to_seconds(task_min_duration[handle]) if task_min_duration[handle] != float("inf") else 0
             max_time = self.parser.timestamp_to_seconds(task_max_duration[handle])
-            
+
             print(f"{task_name:<20} {runtime_sec:10.6f}s {cpu_percent:6.1f}% {exec_count:12d} {avg_time:10.6f}s {min_time:10.6f}s {max_time:10.6f}s")
 
     def analyze_interrupts(self):

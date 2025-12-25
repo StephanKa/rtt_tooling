@@ -15,7 +15,7 @@ echo
 
 # Format with black
 echo "1. Running black formatter..."
-source .venv/bin/activate
+source .venv/Scripts/activate
 black --check scripts/ tests/
 echo "✓ black passed"
 echo

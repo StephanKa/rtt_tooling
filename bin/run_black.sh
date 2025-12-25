@@ -9,5 +9,5 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
 echo "Running black formatter on Python scripts..."
-source .venv/bin/activate
+source .venv/Scripts/activate
 black scripts/ tests/ "$@"
