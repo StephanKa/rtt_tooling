@@ -1,0 +1,163 @@
+[project]
+name = "rtt-tooling"
+version = "0.1.0"
+description = "RTT (Real-Time Transfer) Tools for embedded development"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "black>=24.0.0",
+    "pylint>=3.0.0",
+    "mypy>=1.8.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+]
+
+[tool.black]
+line-length = 180
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 180
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "A",      # flake8-builtins
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez
+    "T10",    # flake8-debugger
+    "EM",     # flake8-errmsg
+    "ISC",    # flake8-implicit-str-concat
+    "ICN",    # flake8-import-conventions
+    "G",      # flake8-logging-format
+    "PIE",    # flake8-pie
+    "T20",    # flake8-print
+    "PT",     # flake8-pytest-style
+    "Q",      # flake8-quotes
+    "RSE",    # flake8-raise
+    "RET",    # flake8-return
+    "SLF",    # flake8-self
+    "SIM",    # flake8-simplify
+    "TID",    # flake8-tidy-imports
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "PL",     # pylint
+    "TRY",    # tryceratops
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "T201",    # Allow print statements
+    "PLR0913", # Allow many arguments
+    "TRY003",  # Allow long exception messages
+    "EM101",   # Allow exception string literals
+    "EM102",   # Allow f-string in exception
+    "TRY300",  # Allow return in try block
+    "PLW2901", # Allow loop variable reassignment
+    "PTH123",  # Allow open() instead of Path.open()
+    "PLC0415", # Allow imports not at top level (for optional dependencies)
+    "RUF012",  # Allow mutable class attributes without ClassVar
+    "PLR0912", # Allow too many branches
+    "PLR0915", # Allow too many statements
+    "PLR2004", # Allow magic values in comparisons
+    "SIM115",  # Allow traditional file opening (compatibility)
+    "SIM108",  # Allow if-else instead of ternary
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG", "PLR2004", "S101", "SLF001"]  # Allow magic values, asserts, and private member access in tests
+"scripts/rtt_viewer.py" = ["ARG002"]  # Allow unused arguments in placeholder implementations
+"scripts/rtt_reader.py" = ["ARG002"]  # Allow unused arguments in interface methods
+
+[tool.pylint.main]
+jobs = 0
+recursive = true
+
+[tool.pylint.messages_control]
+max-line-length = 180
+disable = [
+    "C0103",  # invalid-name
+    "C0114",  # missing-module-docstring (we have them in most files)
+    "C0115",  # missing-class-docstring
+    "C0116",  # missing-function-docstring
+    "C0415",  # import-outside-toplevel (we need this for optional dependencies)
+    "R0801",  # duplicate-code (acceptable for similar implementations)
+    "R0902",  # too-many-instance-attributes
+    "R0903",  # too-few-public-methods
+    "R0912",  # too-many-branches
+    "R0913",  # too-many-arguments
+    "R0914",  # too-many-locals
+    "R0915",  # too-many-statements
+    "R1702",  # too-many-nested-blocks
+    "R1732",  # consider-using-with (we handle resource cleanup manually)
+    "W0212",  # protected-access (allow for testing)
+    "W0613",  # unused-argument (allow for interface compatibility)
+    "W0621",  # redefined-outer-name (expected with pytest fixtures)
+    "W0718",  # broad-exception-caught (acceptable in utility scripts)
+    "W1203",  # logging-fstring-interpolation
+    "W1514",  # unspecified-encoding (we use defaults intentionally)
+    "W4901",  # deprecated-module (telnetlib - no alternative for OpenOCD)
+    "E1128",  # assignment-from-none (false positive)
+    "C1803",  # use-implicit-booleaness-not-comparison (prefer explicit comparisons)
+]
+
+[tool.pylint.format]
+max-line-length = 180
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+no_implicit_optional = false
+warn_redundant_casts = false
+warn_unused_ignores = false
+warn_no_return = true
+strict_equality = false
+ignore_missing_imports = true
+# Allow dynamic typing for utility scripts
+allow_redefinition = true
+disable_error_code = ["assignment", "arg-type", "operator", "attr-defined", "var-annotated", "comparison-overlap"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers --cov=scripts --cov-report=term-missing --cov-report=html"
+testpaths = [
+    "tests",
+]
+pythonpath = [
+    "scripts",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
