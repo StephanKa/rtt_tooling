@@ -1,6 +1,6 @@
 # RTT Tools
 
-[![ARM GCC Build and Test](https://github.com/StephanKa/rtt_tooling/actions/workflows/build.yml/badge.svg)](https://github.com/StephanKa/rtt_tools/actions/workflows/build.yml)
+[![ARM GCC Build and Test](https://github.com/StephanKa/rtt_tooling/actions/workflows/build.yml/badge.svg)](https://github.com/StephanKa/rtt_tooling/actions/workflows/build.yml)
 
 A comprehensive C++ toolkit for SEGGER Real-Time Transfer (RTT) with support for embedded logging, unit testing, FreeRTOS integration, code benchmarking, and memory dumping.
 
