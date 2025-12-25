@@ -14,7 +14,7 @@ bool FreeRtosHooks::isVerbose() noexcept {
 }
 
 void FreeRtosHooks::logTaskInfo(std::string_view taskName, std::string_view message) noexcept {
-    const auto& logger = rtt::getLogger();
+    auto& logger = rtt::getLogger();
 
     if (!taskName.empty() && !message.empty()) {
         logger.info("[Task: ");
@@ -26,7 +26,7 @@ void FreeRtosHooks::logTaskInfo(std::string_view taskName, std::string_view mess
 }
 
 void FreeRtosHooks::logSystemStats() noexcept {
-    const auto& logger = rtt::getLogger();
+    auto& logger = rtt::getLogger();
     logger.info("=== System Statistics ===");
 }
 
@@ -34,7 +34,7 @@ void FreeRtosHooks::logSystemStats() noexcept {
 
 extern "C" {
 void vApplicationMallocFailedHook(void) {
-    const auto& logger = rtt::getLogger();
+    auto& logger = rtt::getLogger();
     logger.critical("FreeRTOS: Malloc failed!");
 
     // In a real system, you might want to halt here
@@ -44,7 +44,7 @@ void vApplicationMallocFailedHook(void) {
 }
 
 void vApplicationStackOverflowHook([[maybe_unused]]void* pxTask, char* pcTaskName) {
-    const auto& logger = rtt::getLogger();
+    auto& logger = rtt::getLogger();
     logger.critical("FreeRTOS: Stack overflow in task: ");
 
     if (pcTaskName != nullptr) {
@@ -75,7 +75,7 @@ void vApplicationIdleHook(void) {
 }
 
 void vApplicationDaemonTaskStartupHook([[maybe_unused]]void* pvParameters) {
-    const auto& logger = rtt::getLogger();
+    auto& logger = rtt::getLogger();
     logger.info("FreeRTOS: Daemon task started");
 }
 
