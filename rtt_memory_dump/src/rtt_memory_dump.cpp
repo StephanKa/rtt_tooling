@@ -34,7 +34,7 @@ namespace rtt::memory_dump
         size_t offset = 0;
         while (offset < size)
         {
-            size_t line_size = std::min(m_config.bytes_per_line, size - offset);
+            const size_t line_size = std::min(m_config.bytes_per_line, size - offset);
             formatLine(bytes + offset, line_size, address, offset);
             offset += line_size;
         }
@@ -49,8 +49,7 @@ namespace rtt::memory_dump
     }
 #endif
 
-    void MemoryDumper::formatLine(const uint8_t* data, size_t size,
-                                  uintptr_t address, size_t offset) noexcept
+    void MemoryDumper::formatLine(const uint8_t* data, size_t size, uintptr_t address, size_t offset) noexcept
     {
         static constexpr size_t BUFFER_SIZE = 512;
         char buffer[BUFFER_SIZE];
@@ -108,8 +107,7 @@ namespace rtt::memory_dump
         m_logger.log(LogLevel::Info, buffer);
     }
 
-    void MemoryDumper::formatHex(const uint8_t* data, size_t size,
-                                 char* buffer, size_t buffer_size) noexcept
+    void MemoryDumper::formatHex(const uint8_t* data, size_t size, char* buffer, size_t buffer_size) noexcept
     {
         size_t pos = 0;
         for (size_t i = 0; i < size; ++i)
@@ -137,8 +135,7 @@ namespace rtt::memory_dump
         }
     }
 
-    void MemoryDumper::formatAscii(const uint8_t* data, size_t size,
-                                   char* buffer, size_t buffer_size) noexcept
+    void MemoryDumper::formatAscii(const uint8_t* data, size_t size, char* buffer, size_t buffer_size) noexcept
     {
         size_t pos = 0;
         for (size_t i = 0; i < size && pos < buffer_size - 1; ++i)
@@ -157,8 +154,7 @@ namespace rtt::memory_dump
         buffer[pos] = '\0';
     }
 
-    void MemoryDumper::formatBinary(const uint8_t* data, size_t size,
-                                    char* buffer, size_t buffer_size) noexcept
+    void MemoryDumper::formatBinary(const uint8_t* data, size_t size, char* buffer, size_t buffer_size) noexcept
     {
         size_t pos = 0;
         for (size_t i = 0; i < size; ++i)
@@ -186,8 +182,7 @@ namespace rtt::memory_dump
         }
     }
 
-    void MemoryDumper::formatDecimal(const uint8_t* data, size_t size,
-                                     char* buffer, size_t buffer_size) noexcept
+    void MemoryDumper::formatDecimal(const uint8_t* data, size_t size, char* buffer, size_t buffer_size) noexcept
     {
         size_t pos = 0;
         for (size_t i = 0; i < size; ++i)
