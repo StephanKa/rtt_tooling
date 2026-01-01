@@ -91,7 +91,7 @@ namespace rtt
          * @param level Log level
          * @param message Message to log
          */
-        void log(LogLevel level, std::string_view message) noexcept;
+        void log(LogLevel level, std::string_view message) const noexcept;
 
         /**
          * @brief Log a formatted message with specified level
@@ -110,7 +110,7 @@ namespace rtt
         /**
          * @brief Log trace message
          */
-        void trace(std::string_view message) noexcept
+        void trace(std::string_view message) const noexcept
         {
             log(LogLevel::Trace, message);
         }
@@ -118,7 +118,7 @@ namespace rtt
         /**
          * @brief Log debug message
          */
-        void debug(std::string_view message) noexcept
+        void debug(std::string_view message) const noexcept
         {
             log(LogLevel::Debug, message);
         }
@@ -126,7 +126,7 @@ namespace rtt
         /**
          * @brief Log info message
          */
-        void info(std::string_view message) noexcept
+        void info(std::string_view message) const noexcept
         {
             log(LogLevel::Info, message);
         }
@@ -134,7 +134,7 @@ namespace rtt
         /**
          * @brief Log warning message
          */
-        void warning(std::string_view message) noexcept
+        void warning(std::string_view message) const noexcept
         {
             log(LogLevel::Warning, message);
         }
@@ -142,7 +142,7 @@ namespace rtt
         /**
          * @brief Log error message
          */
-        void error(std::string_view message) noexcept
+        void error(std::string_view message) const noexcept
         {
             log(LogLevel::Error, message);
         }
@@ -150,7 +150,7 @@ namespace rtt
         /**
          * @brief Log critical message
          */
-        void critical(std::string_view message) noexcept
+        void critical(std::string_view message) const noexcept
         {
             log(LogLevel::Critical, message);
         }

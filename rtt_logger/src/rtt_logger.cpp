@@ -3,7 +3,7 @@
 
 namespace rtt
 {
-    void Logger::log(LogLevel level, std::string_view message) noexcept
+    void Logger::log(LogLevel level, std::string_view message) const noexcept
     {
         if (!isEnabled(level))
         {

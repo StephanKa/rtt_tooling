@@ -30,8 +30,8 @@ int main()
     logger.critical("This is a CRITICAL message - serious problem!");
 
     // Example 2: Formatted logging with printf-style formatting
-    const int value = 42;
-    const float pi = 3.14159f;
+    constexpr int value = 42;
+    constexpr float pi = 3.14159f;
     const auto str = "formatted";
 
     logger.logFormatted(rtt::LogLevel::Info, "Integer value: %d", value);
