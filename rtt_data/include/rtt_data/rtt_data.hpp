@@ -223,15 +223,42 @@ namespace rtt::data
         template <typename T>
         static constexpr DataType getIntType() noexcept
         {
-            if constexpr (std::is_same_v<T, int8_t>) return DataType::Int8;
-            else if constexpr (std::is_same_v<T, uint8_t>) return DataType::UInt8;
-            else if constexpr (std::is_same_v<T, int16_t>) return DataType::Int16;
-            else if constexpr (std::is_same_v<T, uint16_t>) return DataType::UInt16;
-            else if constexpr (std::is_same_v<T, int32_t>) return DataType::Int32;
-            else if constexpr (std::is_same_v<T, uint32_t>) return DataType::UInt32;
-            else if constexpr (std::is_same_v<T, int64_t>) return DataType::Int64;
-            else if constexpr (std::is_same_v<T, uint64_t>) return DataType::UInt64;
-            else return DataType::Binary; // Fallback
+            if constexpr (std::is_same_v<T, int8_t>)
+            {
+                return DataType::Int8;
+            }
+            else if constexpr (std::is_same_v<T, uint8_t>)
+            {
+                return DataType::UInt8;
+            }
+            else if constexpr (std::is_same_v<T, int16_t>)
+            {
+                return DataType::Int16;
+            }
+            else if constexpr (std::is_same_v<T, uint16_t>)
+            {
+                return DataType::UInt16;
+            }
+            else if constexpr (std::is_same_v<T, int32_t>)
+            {
+                return DataType::Int32;
+            }
+            else if constexpr (std::is_same_v<T, uint32_t>)
+            {
+                return DataType::UInt32;
+            }
+            else if constexpr (std::is_same_v<T, int64_t>)
+            {
+                return DataType::Int64;
+            }
+            else if constexpr (std::is_same_v<T, uint64_t>)
+            {
+                return DataType::UInt64;
+            }
+            else
+            {
+                return DataType::Binary;
+            } // Fallback
         }
 
         /**
@@ -240,9 +267,18 @@ namespace rtt::data
         template <typename T>
         static constexpr DataType getFloatType() noexcept
         {
-            if constexpr (std::is_same_v<T, float>) return DataType::Float;
-            else if constexpr (std::is_same_v<T, double>) return DataType::Double;
-            else return DataType::Binary; // Fallback
+            if constexpr (std::is_same_v<T, float>)
+            {
+                return DataType::Float;
+            }
+            else if constexpr (std::is_same_v<T, double>)
+            {
+                return DataType::Double;
+            }
+            else
+            {
+                return DataType::Binary;
+            } // Fallback
         }
     };
 

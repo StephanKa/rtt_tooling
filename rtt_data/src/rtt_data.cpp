@@ -12,13 +12,13 @@ namespace rtt::data
 
     size_t DataSender::sendWithHeader(DataType type, const void* data, size_t size) noexcept
     {
-        if (!data || size == 0)
+        if ((data == nullptr) || size == 0)
         {
             return 0;
         }
 
         // Create header
-        DataHeader header;
+        DataHeader header{};
         header.magic[0] = DATA_MAGIC_0;
         header.magic[1] = DATA_MAGIC_1;
         header.type = type;
