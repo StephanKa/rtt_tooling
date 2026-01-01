@@ -1,11 +1,4 @@
-#include <algorithm>
-#include <numeric>
 #include <rtt_benchmark/rtt_benchmark.hpp>
-
-// Default CPU frequency for ARM platforms if not defined externally
-#ifndef F_CPU
-#define F_CPU 80000000UL // 80 MHz default
-#endif
 
 namespace rtt::benchmark
 {
@@ -21,14 +14,14 @@ namespace rtt::benchmark
 
         // Calculate resolution based on CPU frequency
         // Resolution = 1 / frequency (in seconds), converted to nanoseconds
-        long double resolution_ns = (1.0L / static_cast<long double>(F_CPU)) * 1e9L;
+        constexpr long double resolution_ns = (1.0L / static_cast<long double>(F_CPU)) * 1e9L;
         logger.logFormatted(LogLevel::Info, "Resolution: %.2Lf nanoseconds", resolution_ns);
 
-        if (resolution_ns > 1000.0L)
+        if constexpr (resolution_ns > 1000.0L)
         {
             logger.warning("Clock resolution is coarse (> 1us). Benchmark accuracy may be limited.");
         }
-        else if (resolution_ns > 100.0L)
+        else if constexpr (resolution_ns > 100.0L)
         {
             logger.logFormatted(LogLevel::Info, "Clock resolution is adequate (%.2Lf ns)", resolution_ns);
         }
@@ -98,11 +91,11 @@ namespace rtt::benchmark
 
         // Enable DWT if not already enabled
         static uint8_t dwt_initialized = 0;
-        if (!dwt_initialized)
+        if (dwt_initialized == 0U)
         {
             *SCB_DEMCR |= 0x01000000; // Enable trace
             *DWT_CYCCNT = 0; // Reset counter
-            *DWT_CONTROL |= 1; // Enable counter
+            *DWT_CONTROL |= 1U; // Enable counter
             dwt_initialized = 1;
         }
 
@@ -120,46 +113,6 @@ namespace rtt::benchmark
         return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
 #endif
     }
-
-#if __cplusplus >= 202002L
-    BenchmarkStats Benchmark::calculateStats(std::span<const uint32_t> timings) noexcept
-    {
-        if (timings.empty())
-        {
-            return {};
-        }
-        const auto sum = std::accumulate(timings.begin(), timings.end(), 0u);
-        const auto [minimum, maximum] = std::minmax_element(timings.begin(), timings.end());
-        const BenchmarkStats stats{
-            .min = *minimum,
-            .max = *maximum,
-            .mean = static_cast<uint32_t>(sum / timings.size()),
-            .total = sum,
-            .iterations = timings.size(),
-        };
-        return stats;
-    }
-#else
-    BenchmarkStats Benchmark::calculateStats(const uint32_t* timings, size_t count) noexcept
-    {
-        if (count == 0)
-        {
-            return {};
-        }
-
-        const auto sum = std::accumulate(timings.begin(), timings.end(), 0u);
-        const auto [minimum, maximum] = std::minmax_element(timings.begin(), timings.end());
-        const BenchmarkStats stats{
-            .min = *minimum,
-            .max = *maximum,
-            .mean = sum / timings.size(),
-            .total = sum,
-            .iterations = timings.size(),
-        };
-
-        return stats;
-    }
-#endif
 
     void Benchmark::report(const BenchmarkStats& stats) const noexcept
     {
@@ -179,11 +132,11 @@ namespace rtt::benchmark
     ScopedTimer::~ScopedTimer() noexcept
     {
         const auto end = std::chrono::steady_clock::now();
-        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start_);
+        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - m_start);
 
         // Use logger's formatted output directly via RTT
-        m_logger.logFormatted(LogLevel::Info, "[%.*s] Elapsed time: %lld us", static_cast<int>(name_.length()),
-                              name_.data(), static_cast<long long>(duration.count()));
+        m_logger.logFormatted(LogLevel::Info, "[%.*s] Elapsed time: %lld us", static_cast<int>(m_name.length()),
+                              m_name.data(), duration.count());
     }
 
 } // namespace rtt::benchmark

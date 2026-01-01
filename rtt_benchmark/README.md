@@ -15,7 +15,7 @@ Code benchmarking and performance measurement library using SEGGER RTT for embed
 
 ## Requirements
 
-- C++17 or later (C++20 recommended for concepts)
+- C++20 for concepts
 - RTT Logger library
 - SEGGER RTT library
 - CMake 3.20 or later
@@ -47,12 +47,12 @@ int main() {
     rtt::benchmark::Benchmark bench("MyFunction");
     
     // Run and automatically report results
-    bench.runAndReport([]() {
+    bench.runAndReport<100>([]() {
         // Code to benchmark
         for (int i = 0; i < 1000; ++i) {
             volatile int x = i * i;
         }
-    }, 100);  // Run 100 iterations
+    });  // Run 100 iterations
     
     return 0;
 }
@@ -69,12 +69,12 @@ public:
     explicit Benchmark(std::string_view name, Logger& logger = rtt::getLogger());
     
     // Run benchmark and get statistics
-    template<typename Func>
-    BenchmarkStats run(Func&& func, size_t iterations);
+    template<size_t Iterations, typename Func>
+    BenchmarkStats run(Func&& func);
     
     // Run benchmark and automatically report via RTT
-    template<typename Func>
-    void runAndReport(Func&& func, size_t iterations);
+    template<size_t Iterations, typename Func>
+    void runAndReport(Func&& func);
     
     // Report statistics via RTT
     void report(const BenchmarkStats& stats);
@@ -113,9 +113,9 @@ public:
 ```cpp
 rtt::benchmark::Benchmark bench("QuickSort");
 
-auto stats = bench.run([]() {
+auto stats = bench.run<50>([]() {
     quickSort(data, size);
-}, 50);  // Run 50 times
+});  // Run 50 times
 
 // Use statistics
 if (stats.mean > 1000) {
@@ -130,9 +130,9 @@ bench.report(stats);
 ```cpp
 rtt::benchmark::Benchmark bench("MatrixMultiply");
 
-bench.runAndReport([]() {
+bench.runAndReport<100>([]() {
     multiplyMatrices(A, B, result);
-}, 100);
+});
 ```
 
 ### Scoped Timing
@@ -156,11 +156,11 @@ void processData() {
 ```cpp
 // Benchmark implementation A
 rtt::benchmark::Benchmark benchA("Algorithm_A");
-auto statsA = benchA.run(algorithmA, 100);
+auto statsA = benchA.run<100>(algorithmA);
 
 // Benchmark implementation B
 rtt::benchmark::Benchmark benchB("Algorithm_B");
-auto statsB = benchB.run(algorithmB, 100);
+auto statsB = benchB.run<100>(algorithmB);
 
 // Compare results
 benchA.report(statsA);
@@ -181,9 +181,9 @@ for (size_t size : {100, 1000, 10000}) {
     std::string name = "Sort_" + std::to_string(size);
     rtt::benchmark::Benchmark bench(name);
     
-    bench.runAndReport([&]() {
+    bench.runAndReport<50>([&]() {
         sort(data, size);
-    }, 50);
+    });
 }
 ```
 
@@ -300,7 +300,7 @@ rtt::benchmark::Benchmark bench("Custom", customLogger);
 ```cpp
 TEST(PerformanceTest, SortSpeed) {
     rtt::benchmark::Benchmark bench("SortTest");
-    auto stats = bench.run(sortFunction, 100);
+    auto stats = bench.run<100>(sortFunction);
     
     // Assert performance requirements
     EXPECT_LT(stats.mean, 500);  // Must be under 500µs

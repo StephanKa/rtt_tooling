@@ -2,18 +2,81 @@
 
 #include <chrono>
 #include <cstdint>
+#include <algorithm>
+#include <numeric>
 #include <functional>
-#include <new>
 #include <rtt_logger/rtt_logger.hpp>
 #include <string_view>
-
-#if __cplusplus >= 202002L
 #include <concepts>
-#include <span>
-#endif
+
+// Default CPU frequency for ARM platforms if not defined externally
+constexpr auto F_CPU{80'000'000UL}; // 80 MHz default
 
 namespace rtt::benchmark
 {
+    struct Clock
+    {
+        using rep = std::int64_t;
+        using period = std::ratio<1, F_CPU>;
+        using duration = std::chrono::duration<rep, period>;
+        using time_point = std::chrono::time_point<Clock>;
+        static constexpr bool is_steady{true};
+        static inline auto DWT_CYCCNT = reinterpret_cast<uint32_t*>(0xE0001004);
+
+        static time_point now() noexcept { return time_point{duration{*DWT_CYCCNT}}; }
+    };
+
+    class CycleCounter
+    {
+    public:
+
+        CycleCounter()
+        {
+            // Enable DWT if not already enabled
+            *SCB_DEMCR |= TRACE_MASK; // Enable trace
+            resetCounter();
+            startCounter();
+            m_startTime = Clock::now();
+        }
+
+        template<typename T = std::chrono::microseconds>
+        auto getTimeDiff() const
+        {
+            stopCounter();
+            return std::chrono::duration_cast<T>(Clock::now() - m_startTime);
+        }
+
+        ~CycleCounter()
+        {
+            resetCounter();
+            *SCB_DEMCR &= ~TRACE_MASK;
+        }
+
+    private:
+        Clock::time_point m_startTime{};
+
+        // DWT (Data Watchpoint and Trace) registers for ARM Cortex-M
+        static inline auto DWT_CYCCNT = reinterpret_cast<uint32_t*>(0xE0001004);
+        static inline auto DWT_CONTROL = reinterpret_cast<uint32_t*>(0xE0001000);
+        static inline auto SCB_DEMCR = reinterpret_cast<uint32_t*>(0xE000EDFC);
+        static constexpr uint32_t CYCLE_COUNTER_MASK{1};
+        static constexpr uint32_t TRACE_MASK{0x01000000};
+
+        static void stopCounter()
+        {
+            *DWT_CONTROL &= ~CYCLE_COUNTER_MASK;
+        }
+
+        static void startCounter()
+        {
+            *DWT_CONTROL |= CYCLE_COUNTER_MASK; // Enable counter
+        }
+
+        static void resetCounter()
+        {
+            *DWT_CYCCNT = 0; // Reset counter
+        }
+    };
 
     /**
      * @brief Statistics for benchmark results
@@ -27,11 +90,8 @@ namespace rtt::benchmark
         size_t iterations; // Number of iterations performed
     };
 
-#if __cplusplus >= 202002L
-    // C++20 Concepts for benchmarkable functions
     template <typename F>
     concept BenchmarkableFunction = std::invocable<F> && std::same_as<void, std::invoke_result_t<F>>;
-#endif
 
     /**
      * @brief Benchmark class for measuring code execution time via RTT
@@ -56,27 +116,17 @@ namespace rtt::benchmark
         /**
          * @brief Run a benchmark function multiple times
          * @param func Function to benchmark (must be invocable with no args and return void)
-         * @param iterations Number of times to run the function
          * @return BenchmarkStats containing timing statistics
          */
-#if __cplusplus >= 202002L
-        template <BenchmarkableFunction Func>
-#else
-        template <typename Func>
-#endif
-        BenchmarkStats run(Func&& func, size_t iterations) noexcept;
+        template <size_t Iterations, BenchmarkableFunction Func>
+        BenchmarkStats run(Func&& func) noexcept;
 
         /**
          * @brief Run a benchmark function and report results via RTT
          * @param func Function to benchmark
-         * @param iterations Number of times to run the function
          */
-#if __cplusplus >= 202002L
-        template <BenchmarkableFunction Func>
-#else
-        template <typename Func>
-#endif
-        void runAndReport(Func&& func, size_t iterations) noexcept;
+        template <size_t Iterations, BenchmarkableFunction Func>
+        void runAndReport(Func&& func) noexcept;
 
         /**
          * @brief Report benchmark statistics via RTT
@@ -118,14 +168,26 @@ namespace rtt::benchmark
 
         /**
          * @brief Calculate statistics from timing measurements
-         * @param timings Timing measurements (C++20: span, C++17: pointer and count)
+         * @param timings Timing measurements
          * @return Calculated statistics
          */
-#if __cplusplus >= 202002L
-        [[nodiscard]] static BenchmarkStats calculateStats(std::span<const uint32_t> timings) noexcept;
-#else
-        [[nodiscard]] static BenchmarkStats calculateStats(const uint32_t* timings, size_t count) noexcept;
-#endif
+        template<size_t Size>
+        [[nodiscard]] static BenchmarkStats calculateStats(const std::array<uint32_t, Size>& timings) noexcept
+        {
+            if (timings.empty())
+            {
+                return {};
+            }
+            const auto [minimum, maximum] = std::ranges::minmax_element(timings);
+            const BenchmarkStats stats{
+                .min = *minimum,
+                .max = *maximum,
+                .mean = static_cast<uint32_t>(std::accumulate(timings.begin(), timings.end(), 0U) / Size),
+                .total = (std::accumulate(timings.begin(), timings.end(), 0U)),
+                .iterations = Size,
+            };
+            return stats;
+        }
     };
 
     /**
@@ -141,8 +203,8 @@ namespace rtt::benchmark
          * @param name Timer name for identification
          * @param logger Logger instance to use
          */
-        explicit ScopedTimer(std::string_view name, Logger& logger = rtt::getLogger()) noexcept :
-            name_(name), m_logger(logger), start_(std::chrono::steady_clock::now())
+        explicit ScopedTimer(std::string_view name, Logger& logger = getLogger()) noexcept :
+            m_name(name), m_logger(logger), m_start(std::chrono::steady_clock::now())
         {
         }
 
@@ -158,86 +220,33 @@ namespace rtt::benchmark
         ScopedTimer& operator=(ScopedTimer&&) = delete;
 
     private:
-        std::string_view name_;
+        std::string_view m_name;
         Logger& m_logger;
-        std::chrono::steady_clock::time_point start_;
+        std::chrono::steady_clock::time_point m_start;
     };
 
-    // Template implementations
-
-#if __cplusplus >= 202002L
-    template <BenchmarkableFunction Func>
-#else
-    template <typename Func>
-#endif
-    BenchmarkStats Benchmark::run(Func&& func, size_t iterations) noexcept
+    template <size_t Iterations, BenchmarkableFunction Func>
+    BenchmarkStats Benchmark::run(Func&& func) noexcept
     {
-        static constexpr size_t MAX_ITERATIONS = 10000;
-        static constexpr size_t STACK_BUFFER_SIZE = 256;
-
-        // Limit iterations to avoid memory issues
-        if (iterations > MAX_ITERATIONS)
-        {
-            m_logger.warning("Requested iterations exceeds maximum, capping at 10000");
-            iterations = MAX_ITERATIONS;
-        }
-
         // Allocate timing buffer on stack for small iterations, heap for large
-        uint32_t stack_buffer[STACK_BUFFER_SIZE];
-        uint32_t* timings = stack_buffer;
-        bool heap_allocated = false;
-
-        // Only use heap if iterations exceed stack buffer size
-        if (iterations > STACK_BUFFER_SIZE)
-        {
-            timings = new (std::nothrow) uint32_t[iterations];
-            if (timings == nullptr)
-            {
-                // Fall back to stack buffer with reduced iterations on allocation failure
-                m_logger.warning("Memory allocation failed, reducing iterations to 256");
-                timings = stack_buffer;
-                iterations = STACK_BUFFER_SIZE;
-            }
-            else
-            {
-                heap_allocated = true;
-            }
-        }
+        std::array<uint32_t, Iterations> timings{};
 
         // Run benchmark iterations
-        for (size_t i = 0; i < iterations; ++i)
+        for (size_t i = 0; i < Iterations; ++i)
         {
-            uint32_t start = getCurrentTimeMicros();
+            CycleCounter cycle;
             func();
-            uint32_t end = getCurrentTimeMicros();
-            timings[i] = end - start;
+            timings.at(i) = cycle.getTimeDiff().count();
         }
 
-        // Calculate statistics
-#if __cplusplus >= 202002L
-        const BenchmarkStats stats = calculateStats(std::span<const uint32_t>(timings, iterations));
-#else
-        BenchmarkStats stats = calculateStats(timings, iterations);
-#endif
-
-        // Clean up heap allocation if used
-        if (heap_allocated)
-        {
-            delete[] timings;
-        }
-
-        return stats;
+        return calculateStats(timings);
     }
 
-#if __cplusplus >= 202002L
-    template <BenchmarkableFunction Func>
-#else
-    template <typename Func>
-#endif
-    void Benchmark::runAndReport(Func&& func, size_t iterations) noexcept
+    template <size_t Iterations, BenchmarkableFunction Func>
+    void Benchmark::runAndReport(Func&& func) noexcept
     {
         m_logger.info("Starting benchmark...");
-        const BenchmarkStats stats = run(std::forward<Func>(func), iterations);
+        const BenchmarkStats stats = run<Iterations>(std::forward<Func>(func));
         report(stats);
     }
 

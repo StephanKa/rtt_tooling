@@ -1,32 +1,36 @@
 #include <rtt_logger/rtt_logger.hpp>
 #include <rtt_benchmark/rtt_benchmark.hpp>
 
-// Example functions to benchmark
-void quickOperation()
-{
-    volatile int sum = 0;
-    for (int i = 0; i < 100; ++i)
-    {
-        sum += i;
-    }
-}
 
-void mediumOperation()
+namespace
 {
-    volatile int sum = 0;
-    for (int i = 0; i < 1000; ++i)
+    // Example functions to benchmark
+    void quickOperation()
     {
-        sum += i * i;
+        volatile int sum = 0;
+        for (int i = 0; i < 100; ++i)
+        {
+            sum += i;
+        }
     }
-}
 
-void complexOperation()
-{
-    volatile long long result = 1;
-    for (int i = 1; i <= 20; ++i)
+    void mediumOperation()
     {
-        result *= i;
-        result %= 1000000007; // Keep numbers manageable
+        volatile int sum = 0;
+        for (int i = 0; i < 1000; ++i)
+        {
+            sum += i * i;
+        }
+    }
+
+    void complexOperation()
+    {
+        volatile long long result = 1;
+        for (int i = 1; i <= 20; ++i)
+        {
+            result *= i;
+            result %= 1000000007; // Keep numbers manageable
+        }
     }
 }
 
@@ -54,7 +58,7 @@ int main()
         logger.info("-------------------------------------------");
 
         rtt::benchmark::Benchmark bench("QuickOperation", logger);
-        bench.runAndReport(quickOperation, 100);
+        bench.runAndReport<100>(quickOperation);
     }
 
     // Example 2: Benchmark with manual stats handling
@@ -64,7 +68,7 @@ int main()
         logger.info("-------------------------------------------");
 
         rtt::benchmark::Benchmark bench("MediumOperation", logger);
-        const auto stats = bench.run(mediumOperation, 50);
+        const auto stats = bench.run<50>(mediumOperation);
 
         // You can use stats programmatically before reporting
         if (stats.mean > 1000)
@@ -84,12 +88,12 @@ int main()
         rtt::benchmark::Benchmark bench("ComplexOperation", logger);
 
         logger.info("Running with 10 iterations:");
-        const auto stats10 = bench.run(complexOperation, 10);
+        const auto stats10 = bench.run<10>(complexOperation);
         bench.report(stats10);
 
         logger.info("");
         logger.info("Running with 100 iterations:");
-        const auto stats100 = bench.run(complexOperation, 100);
+        const auto stats100 = bench.run<100>(complexOperation);
         bench.report(stats100);
     }
 
@@ -100,12 +104,12 @@ int main()
         logger.info("-------------------------------------------");
 
         {
-            rtt::benchmark::ScopedTimer timer("ComplexOperation-Single", logger);
+            const rtt::benchmark::ScopedTimer timer("ComplexOperation-Single", logger);
             complexOperation();
         } // Timer automatically reports when scope ends
 
         {
-            rtt::benchmark::ScopedTimer timer("BatchOperations", logger);
+            const rtt::benchmark::ScopedTimer timer("BatchOperations", logger);
             for (int i = 0; i < 5; ++i)
             {
                 quickOperation();
