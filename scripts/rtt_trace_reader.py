@@ -101,7 +101,7 @@ class JLinkRttReader:
 class OpenOcdRttReader:
     """RTT reader using OpenOCD telnet interface"""
 
-    def __init__(self, device: str, channel: int = 1, host: str = "localhost", port: int = 4444):
+    def __init__(self, device: str, channel: int = 1, host: str = "localhost", port: int = 19022):
         self.device = device
         self.channel = channel
         self.host = host
@@ -111,19 +111,15 @@ class OpenOcdRttReader:
 
     def connect(self) -> bool:
         """Connect to OpenOCD via telnet"""
+        # add server start
+        # new connection via telnet, grep port
+        # read data from new connection
         try:
+            # start openocd
+            # openocd  --file st_nucleo_l4.cfg
             import telnetlib
 
             self.telnet = telnetlib.Telnet(self.host, self.port, timeout=5)
-
-            # Read welcome message
-            self.telnet.read_until(b"> ", timeout=2)
-
-            # Initialize RTT
-            self._send_command('rtt setup 0x20000000 0x10000 "SEGGER RTT"')
-            time.sleep(0.1)
-            self._send_command("rtt start")
-            time.sleep(0.1)
 
             print(f"Connected to OpenOCD at {self.host}:{self.port}")
             return True
@@ -157,13 +153,14 @@ class OpenOcdRttReader:
             return None
         try:
             # Use OpenOCD RTT polling
-            response = self._send_command(f"rtt read {self.channel} 1024")
+            response = self.telnet.read_until(b'\n')
             # Parse response and extract binary data
             # This is a simplified version - actual implementation would parse hex data
             # OpenOCD outputs RTT data in hex format
             if response and len(response) > 0:
                 # Filter out command echo and prompt
-                lines = response.split("\n")
+                #lines = response.split("\n")
+                return response
                 data_lines = [line for line in lines if not line.startswith(">") and len(line.strip()) > 0]
                 if data_lines:
                     # Convert hex to bytes (simplified)
