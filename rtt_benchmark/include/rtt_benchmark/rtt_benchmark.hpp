@@ -9,22 +9,41 @@
 #include <string_view>
 #include <concepts>
 
-// Default CPU frequency for ARM platforms if not defined externally
-constexpr auto F_CPU{80'000'000UL}; // 80 MHz default
 
 namespace rtt::benchmark
 {
+    // Default CPU frequency for ARM platforms if not defined externally
+    constexpr auto F_CPU{80'000'000}; // 80 MHz default
+    template<uint64_t CPUFrequencyHz>
     struct Clock
     {
         using rep = std::int64_t;
-        using period = std::ratio<1, F_CPU>;
+        using period = std::ratio<1, CPUFrequencyHz>;
         using duration = std::chrono::duration<rep, period>;
         using time_point = std::chrono::time_point<Clock>;
         static constexpr bool is_steady{true};
         static inline auto DWT_CYCCNT = reinterpret_cast<uint32_t*>(0xE0001004);
 
-        static time_point now() noexcept { return time_point{duration{*DWT_CYCCNT}}; }
+        static time_point now() noexcept { return time_point{duration{getTicks()}}; }
+        static uint64_t getTicks() noexcept {
+            static uint32_t last_count = 0;
+            static uint32_t overflow_count = 0;
+
+            const uint32_t current = *DWT_CYCCNT;
+
+            // Detect overflow (wrapped around)
+            if (current < last_count) {
+                ++overflow_count;
+            }
+
+            last_count = current;
+
+            // Combine overflow count and current count into 64-bit value
+            return (static_cast<uint64_t>(overflow_count) << 32) | current;
+        }
     };
+
+    using DwtClock = Clock<F_CPU>;
 
     class CycleCounter
     {
@@ -32,18 +51,29 @@ namespace rtt::benchmark
 
         CycleCounter()
         {
-            // Enable DWT if not already enabled
-            *SCB_DEMCR |= TRACE_MASK; // Enable trace
             resetCounter();
             startCounter();
-            m_startTime = Clock::now();
+            m_startTime = DwtClock::now();
         }
+
+        static bool initialize() noexcept {
+            // Enable DWT if not already enabled
+            *SCB_DEMCR |= TRACE_MASK; // Enable trace
+            *DWT_CYCCNT = 0U;
+            startCounter();
+            return (*DWT_CYCCNT & DWT_CTRL_CYCCNTENA) != 0;
+        }
+
 
         template<typename T = std::chrono::microseconds>
         auto getTimeDiff() const
         {
             stopCounter();
-            return std::chrono::duration_cast<T>(Clock::now() - m_startTime);
+            return std::chrono::duration_cast<T>(DwtClock::now() - m_startTime);
+        }
+
+        static void reset() noexcept {
+            resetCounter();
         }
 
         ~CycleCounter()
@@ -53,23 +83,23 @@ namespace rtt::benchmark
         }
 
     private:
-        Clock::time_point m_startTime{};
+        DwtClock::time_point m_startTime{};
 
         // DWT (Data Watchpoint and Trace) registers for ARM Cortex-M
         static inline auto DWT_CYCCNT = reinterpret_cast<uint32_t*>(0xE0001004);
         static inline auto DWT_CONTROL = reinterpret_cast<uint32_t*>(0xE0001000);
         static inline auto SCB_DEMCR = reinterpret_cast<uint32_t*>(0xE000EDFC);
-        static constexpr uint32_t CYCLE_COUNTER_MASK{1};
         static constexpr uint32_t TRACE_MASK{0x01000000};
+        static constexpr uint32_t DWT_CTRL_CYCCNTENA = 1UL << 0;
 
         static void stopCounter()
         {
-            *DWT_CONTROL &= ~CYCLE_COUNTER_MASK;
+            *DWT_CONTROL &= ~DWT_CTRL_CYCCNTENA;
         }
 
         static void startCounter()
         {
-            *DWT_CONTROL |= CYCLE_COUNTER_MASK; // Enable counter
+            *DWT_CONTROL |= DWT_CTRL_CYCCNTENA; // Enable counter
         }
 
         static void resetCounter()
