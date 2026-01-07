@@ -87,10 +87,9 @@ void rtt_trace_init(uint8_t trace_channel)
     SEGGER_RTT_Init();
 
     // Configure a dedicated buffer for the trace channel with adequate size
-    // Mode: SEGGER_RTT_MODE_NO_BLOCK_SKIP to prevent blocking
     SEGGER_RTT_ConfigUpBuffer(trace_channel, "FreeRTOS Trace",
                               rtt_trace_buffer, RTT_TRACE_BUFFER_SIZE,
-                              SEGGER_RTT_MODE_NO_BLOCK_SKIP);
+                              SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL);
 
     // Send a header marker to identify trace stream
     constexpr char header[] = "RTT_TRACE_V1\n";
