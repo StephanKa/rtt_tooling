@@ -200,7 +200,7 @@ class TraceAnalyzer:
 
         task_runtimes = defaultdict(int)  # Total execution time per task
         task_execution_count = defaultdict(int)  # Number of execution periods
-        task_min_duration = defaultdict(lambda: float("inf"))  # Shortest execution period
+        task_min_duration = defaultdict(lambda: float('inf'))  # Shortest execution period
         task_max_duration = defaultdict(int)  # Longest execution period
         current_task = None
         task_start_time = None
@@ -285,7 +285,7 @@ class TraceAnalyzer:
             cpu_percent = (runtime / trace_duration) * 100 if trace_duration > 0 else 0
             exec_count = task_execution_count[handle]
             avg_time = self.parser.timestamp_to_seconds(runtime / exec_count) if exec_count > 0 else 0
-            min_time = self.parser.timestamp_to_seconds(task_min_duration[handle]) if task_min_duration[handle] != float("inf") else 0
+            min_time = self.parser.timestamp_to_seconds(task_min_duration[handle]) if task_min_duration[handle] != float('inf') else 0
             max_time = self.parser.timestamp_to_seconds(task_max_duration[handle])
 
             print(f"{task_name:<20} {runtime_sec:10.6f}s {cpu_percent:6.1f}% {exec_count:12d} {avg_time:10.6f}s {min_time:10.6f}s {max_time:10.6f}s")
