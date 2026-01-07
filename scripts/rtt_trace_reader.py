@@ -153,7 +153,7 @@ class OpenOcdRttReader:
             return None
         try:
             # Use OpenOCD RTT polling
-            response = self.telnet.read_until(b'\n')
+            response = self.telnet.read_until(b"\n")
             if response and len(response) > 0:
                 # Filter out command echo and prompt
                 return response
