@@ -154,17 +154,9 @@ class OpenOcdRttReader:
         try:
             # Use OpenOCD RTT polling
             response = self.telnet.read_until(b'\n')
-            # Parse response and extract binary data
-            # This is a simplified version - actual implementation would parse hex data
-            # OpenOCD outputs RTT data in hex format
             if response and len(response) > 0:
                 # Filter out command echo and prompt
-                #lines = response.split("\n")
                 return response
-                data_lines = [line for line in lines if not line.startswith(">") and len(line.strip()) > 0]
-                if data_lines:
-                    # Convert hex to bytes (simplified)
-                    return b"".join([bytes.fromhex(line.strip()) for line in data_lines if line.strip()])
             return None
         except Exception as e:
             print(f"Error reading RTT: {e}", file=sys.stderr)
