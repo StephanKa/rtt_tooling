@@ -10,7 +10,7 @@ on:
 jobs:
   build-arm:
     name: Build for ARM (STM32F205)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout code
@@ -27,7 +27,7 @@ jobs:
         sudo apt-get install -y ninja-build
         ninja --version
 
-    - name: Configure CMake for ARM
+    - name: Configure CMake for ARM (C++23)
       run: |
         cmake --preset arm-stm32f205
 
@@ -41,7 +41,7 @@ jobs:
 
   build-arm-release:
     name: Build for ARM (Release)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout code
@@ -56,7 +56,7 @@ jobs:
       run: |
         sudo apt-get install -y ninja-build
 
-    - name: Configure CMake for ARM (Release)
+    - name: Configure CMake for ARM (Release, C++23)
       run: |
         cmake --preset arm-stm32f205-release
 
@@ -70,7 +70,7 @@ jobs:
 
   build-native:
     name: Build Native (Debug)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout code
@@ -79,9 +79,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ninja-build
+        sudo apt-get install -y ninja-build gcc g++
+        gcc --version
+        g++ --version
 
-    - name: Configure CMake
+    - name: Configure CMake (C++23)
       run: |
         cmake --preset default
 
@@ -91,7 +93,7 @@ jobs:
 
   test:
     name: Run Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout code
@@ -100,9 +102,9 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ninja-build
+        sudo apt-get install -y ninja-build gcc g++
 
-    - name: Configure CMake with testing
+    - name: Configure CMake with testing (C++23)
       run: |
         cmake --preset testing
 
@@ -117,7 +119,7 @@ jobs:
 
   python-lint-and-test:
     name: Python Linting and Testing
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: read
