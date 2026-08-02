@@ -2,16 +2,18 @@
 
 [![ARM GCC Build and Test](https://github.com/StephanKa/rtt_tooling/actions/workflows/build.yml/badge.svg)](https://github.com/StephanKa/rtt_tooling/actions/workflows/build.yml)
 
-A comprehensive C++ toolkit for SEGGER Real-Time Transfer (RTT) with support for embedded logging, unit testing, FreeRTOS integration, code benchmarking, and memory dumping.
+A comprehensive C++23 toolkit for SEGGER Real-Time Transfer (RTT) with support for embedded logging, unit testing, FreeRTOS integration, code benchmarking, and memory dumping.
 
 ## Features
 
-- **Modern C++17/20/23** RTT logger with type-safe interfaces
-  - C++20 concepts for type constraints
-  - C++20 std::span for safer array handling
-  - C++20 ranges support
-  - Backward compatible with C++17
-- **Modern C++17** RTT logger with type-safe interfaces
+- **C++23** RTT logger with type-safe interfaces and compile-time log level gating
+  - `BasicLogger<MinLevel>` template: log calls below MinLevel compile to zero instructions
+  - Concepts (`Formattable`, `BenchmarkableFunction`, `Sendable`) — unconditional
+  - `std::span` / `std::as_bytes` for safe, type-erased buffer views
+  - `std::ranges::fold_left`, `std::ranges::minmax_element` for statistics
+  - `std::expected<void, E>` for `initialize()` error reporting
+  - `std::unreachable()` in exhaustive switches for optimiser hints
+  - `std::to_underlying()` for enum → integer casts
 - **External SEGGER RTT library** fetched automatically via CMake FetchContent
 - **CMake & Ninja** build system with presets
 - **Configurable C++ standard** (17, 20, 23) via CMake option
@@ -32,7 +34,7 @@ A comprehensive C++ toolkit for SEGGER Real-Time Transfer (RTT) with support for
 
 ```
 rtt_tooling/
-├── rtt_logger/              # RTT logger library (modern C++17/20/23)
+├── rtt_logger/              # RTT logger library (C++23)
 │   ├── include/
 │   │   └── rtt_logger/
 │   │       └── rtt_logger.hpp      # Modern C++ RTT logger interface
@@ -125,7 +127,7 @@ rtt_tooling/
 ### For Native Builds
 - CMake 3.20 or later
 - Ninja build system
-- C++17/20/23 compatible compiler (GCC 10+, Clang 11+)
+- C++23 compatible compiler (GCC 13+, Clang 17+)
 - Internet connection (for fetching SEGGER RTT library on first build)
 
 ### For ARM Builds
@@ -139,7 +141,7 @@ rtt_tooling/
 - SEGGER RTT library (automatically fetched by CMake from https://github.com/SEGGERMicro/RTT)
 
 ### For Python Scripts
-- Python 3.6 or later
+- Python 3.8 or later
 - Optional: pylink-square (for J-Link RTT support)
   ```bash
   pip install pylink-square
@@ -147,34 +149,25 @@ rtt_tooling/
 
 ## Building
 
-### C++ Standard Selection
+### C++ Standard
 
-The project supports C++17, C++20, and C++23. The default is C++20.
-
-To select a different C++ standard:
+The project requires **C++23**. The `RTT_CXX_STANDARD` CMake variable is set to `23` by default.
 
 ```bash
-# Build with C++17
-cmake --preset default -DRTT_CXX_STANDARD=17
-cmake --build --preset default
-
-# Build with C++20 (default)
+# Standard build (C++23)
 cmake --preset default
-cmake --build --preset default
-
-# Build with C++23
-cmake --preset default -DRTT_CXX_STANDARD=23
 cmake --build --preset default
 ```
 
-**Modern C++ Features by Standard:**
+**C++23 Features Used:**
 
-- **C++17**: Core functionality with `string_view`, `constexpr`, and basic type traits
-- **C++20** (recommended): 
-  - Concepts for type constraints (`Formattable`, `BenchmarkableFunction`)
-  - `std::span` for safer array handling in benchmarks
-  - `std::ranges` for container algorithms
-- **C++23**: All C++20 features plus latest standard features
+- `BasicLogger<MinLevel>` template — compile-time log level floor; disabled calls produce zero code
+- `std::expected<void, E>` — structured error return from `initialize()`
+- `std::unreachable()` — exhaustive switch optimiser hint
+- `std::to_underlying()` — enum-to-integer casts
+- `std::ranges::fold_left` — range-based accumulation in benchmark stats
+- `std::as_bytes(std::span{...})` — type-safe object byte view in memory dumper
+- Unconditional concepts: `Formattable`, `BenchmarkableFunction`, `Sendable`
 
 ### Using CMake Presets
 
@@ -206,9 +199,9 @@ ctest --preset testing
 ### Manual Configuration
 
 ```bash
-# Native build with custom C++ standard
+# Native build
 mkdir build && cd build
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DRTT_CXX_STANDARD=20 ..
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DRTT_CXX_STANDARD=23 ..
 ninja
 
 # ARM build for STM32F205
@@ -217,7 +210,7 @@ cmake -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE=../cmake/arm-none-eabi-gcc.cmake \
   -DTARGET_DEVICE=STM32F205 \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DRTT_CXX_STANDARD=20 \
+  -DRTT_CXX_STANDARD=23 \
   ..
 ninja
 ```
@@ -230,22 +223,26 @@ ninja
 #include <rtt_logger/rtt_logger.hpp>
 
 int main() {
-    // Initialize RTT
-    rtt::Logger::initialize();
-    
+    // Initialize RTT — returns std::expected<void, const char*>
+    if (auto result = rtt::Logger::initialize(); !result)
+        return 1;
+
     // Get global logger instance
     auto& logger = rtt::getLogger();
     logger.setMinLevel(rtt::LogLevel::Debug);
-    
+
     // Log messages
     logger.info("Application started");
     logger.debug("Debug information");
     logger.warning("Warning message");
     logger.error("Error occurred");
-    
-    // Formatted logging
+
+    // Compile-time level overload (zero cost if MinLevel > Info)
+    logger.log<rtt::LogLevel::Info>("Type-safe compile-time log");
+
+    // Formatted logging (runtime level)
     logger.logFormatted(rtt::LogLevel::Info, "Value: %d", 42);
-    
+
     return 0;
 }
 ```
@@ -260,7 +257,7 @@ int main() {
 TEST(RttLoggerTest, BasicLogging) {
     auto& logger = rtt::getLogger();
     logger.setMinLevel(rtt::LogLevel::Trace);
-    
+
     EXPECT_EQ(logger.getMinLevel(), rtt::LogLevel::Trace);
     EXPECT_TRUE(logger.isEnabled(rtt::LogLevel::Info));
 }
@@ -475,38 +472,38 @@ The rtt_data library provides a type-safe interface for sending structured data 
 int main() {
     // Initialize RTT
     rtt::Logger::initialize();
-    
+
     // Get the global data sender (uses RTT channel 1 by default)
     auto& dataSender = rtt::data::getDataSender();
-    
+
     // Send integers of different sizes
     dataSender.sendInt(static_cast<int32_t>(42));
     dataSender.sendInt(static_cast<uint16_t>(1000));
-    
+
     // Send floating-point values
     dataSender.sendFloat(3.14159f);
     dataSender.sendFloat(2.71828);
-    
+
     // Send strings
     dataSender.sendString("Hello from RTT!");
-    
+
     // Send binary data
     uint8_t data[] = {0xDE, 0xAD, 0xBE, 0xEF};
     dataSender.sendBinary(data, sizeof(data));
-    
+
     // Enable timestamping
     dataSender.setTimestamping(true);
     for (int i = 0; i < 10; ++i) {
         dataSender.sendInt(static_cast<int32_t>(i * 100));
     }
-    
+
     // Send custom struct (must be trivially copyable)
     struct SensorData {
         float temperature;
         float humidity;
         uint32_t pressure;
     } __attribute__((packed));
-    
+
     SensorData sensor = {23.5f, 65.2f, 101325};
     dataSender.send(sensor);
 ### Fault Handler (ARM Cortex-M)
@@ -520,17 +517,17 @@ int main() {
     // Initialize the fault handler with default configuration
     // This overrides HardFault, MemManage, BusFault, and UsageFault handlers
     rtt::fault::FaultHandler::initialize();
-    
+
     // Alternative: Initialize with custom configuration
     rtt::fault::FaultHandlerConfig config;
     config.rttChannel = 0;           // Use RTT channel 0
     config.maxStackDepth = 32;       // Show up to 32 stack frames
     config.enableVerbose = true;     // Enable verbose fault decoding
     rtt::fault::FaultHandler::initialize(config);
-    
+
     // Your application code here
     // Any hardware fault will be caught and reported via RTT
-    
+
     return 0;
 }
 ```
@@ -585,7 +582,7 @@ Press Ctrl+C to stop
 
 **Example fault output via RTT:**
 ```
-     FAULT EXCEPTION DETECTED    
+     FAULT EXCEPTION DETECTED
 Fault Type: HardFault
 
 --- CPU Registers ---
