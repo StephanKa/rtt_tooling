@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 project(rtt_tooling VERSION 1.0.0 LANGUAGES C CXX ASM)
 
-# C++ standard selection option
-set(RTT_CXX_STANDARD "20" CACHE STRING "C++ standard (17, 20, 23)")
-set_property(CACHE RTT_CXX_STANDARD PROPERTY STRINGS "17" "20" "23")
+# C++ standard selection option (C++23 required)
+set(RTT_CXX_STANDARD "23" CACHE STRING "C++ standard (23)")
+set_property(CACHE RTT_CXX_STANDARD PROPERTY STRINGS "23")
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD ${RTT_CXX_STANDARD})
