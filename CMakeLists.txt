@@ -18,7 +18,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Build options
-option(BUILD_TESTING "Build unit tests" OFF)
+option(BUILD_TESTING "Build unit tests" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
 
 # Fetch external SEGGER RTT library
