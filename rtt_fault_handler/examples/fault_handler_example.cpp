@@ -63,7 +63,7 @@ void triggerUnalignedAccess()
     volatile uint8_t buffer[8];
     // Force an unaligned 32-bit access
     volatile uint32_t* unalignedPtr = reinterpret_cast<volatile uint32_t*>(&buffer[1]);
-    [[maybe_unused]]const uint32_t value = *unalignedPtr;
+    [[maybe_unused]] const uint32_t value = *unalignedPtr;
 }
 
 int main()

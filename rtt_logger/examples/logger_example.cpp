@@ -64,9 +64,8 @@ int main()
     auto currentLevel = logger.getMinLevel();
     logger.logFormatted(rtt::LogLevel::Info, "Current minimum level: %d", static_cast<int>(currentLevel));
 
-#if __cplusplus >= 202002L
-    // Example 6: C++20 concepts ensure type safety at compile time
-    logger.info("Using C++20 with concepts for enhanced type safety");
+    // Example 6: concepts ensure type safety at compile time
+    logger.info("Concepts enforced type safety");
 
     // These will work:
     logger.logFormatted(rtt::LogLevel::Info, "Integer: %d", 123);
@@ -76,8 +75,7 @@ int main()
     const auto text = "text";
     logger.logFormatted(rtt::LogLevel::Info, "String: %s", text);
 
-    // Non-formattable types would cause compile errors with concepts
-#endif
+    // Non-formattable types cause compile errors
 
     logger.info("===========================================");
     logger.info("  Logger Example Completed");

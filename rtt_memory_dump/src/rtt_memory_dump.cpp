@@ -42,12 +42,10 @@ namespace rtt::memory_dump
         m_logger.info("=== End Memory Dump ===");
     }
 
-#if __cplusplus >= 202002L
-    void MemoryDumper::dump(std::span<const uint8_t> data, std::string_view description) noexcept
+    void MemoryDumper::dump(std::span<const std::byte> data, std::string_view description) noexcept
     {
         dump(data.data(), data.size(), description);
     }
-#endif
 
     void MemoryDumper::formatLine(const uint8_t* data, size_t size, uintptr_t address, size_t offset) noexcept
     {

@@ -1,5 +1,6 @@
 #include <rtt_fault_handler/rtt_fault_handler.hpp>
 #include <cstdint>
+#include <utility>
 
 namespace rtt::fault
 {
@@ -41,7 +42,7 @@ namespace rtt::fault
         case FaultType::UsageFault:
             return "UsageFault";
         default:
-            return "Unknown Fault";
+            std::unreachable();
         }
     }
 

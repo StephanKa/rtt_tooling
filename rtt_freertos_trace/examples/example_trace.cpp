@@ -32,7 +32,7 @@ static void* queueHandle = nullptr;
 /**
  * @brief LED blink task
  */
-void ledTask([[maybe_unused]]void* params)
+void ledTask([[maybe_unused]] void* params)
 {
     while (1)
     {
@@ -47,7 +47,7 @@ void ledTask([[maybe_unused]]void* params)
 /**
  * @brief UART communication task
  */
-void uartTask([[maybe_unused]]void* params)
+void uartTask([[maybe_unused]] void* params)
 {
     while (1)
     {
@@ -63,7 +63,7 @@ void uartTask([[maybe_unused]]void* params)
 /**
  * @brief Sensor reading task
  */
-void sensorTask([[maybe_unused]]void* params)
+void sensorTask([[maybe_unused]] void* params)
 {
     while (1)
     {

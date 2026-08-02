@@ -1,14 +1,11 @@
 #pragma once
 
 #include <rtt_logger/rtt_logger.hpp>
+#include <algorithm>
+#include <memory>
+#include <ranges>
 #include <string>
 #include <vector>
-#include <memory>
-#include <algorithm>
-
-#if __cplusplus >= 202002L
-#include <ranges>
-#endif
 
 #ifdef BUILD_TESTING
 #include <gtest/gtest.h>
@@ -74,11 +71,7 @@ namespace rtt::unittest
          */
         [[nodiscard]] bool containsMessage(const std::string& message) const noexcept
         {
-#if __cplusplus >= 202002L
             return std::ranges::find(m_capturedOutput, message) != m_capturedOutput.end();
-#else
-            return std::find(m_capturedOutput.begin(), m_capturedOutput.end(), message) != m_capturedOutput.end();
-#endif
         }
 
         /**
@@ -92,7 +85,7 @@ namespace rtt::unittest
 
     private:
         std::vector<std::string> m_capturedOutput;
-        bool m_capturing {false};
+        bool m_capturing{false};
     };
 
     /**
@@ -141,22 +134,22 @@ namespace rtt::unittest
         {
             m_logger.info("=== Test Program Start ===");
             m_logger.logFormatted(LogLevel::Info, "Running %d tests from %d test suites",
-                                 unit_test.test_to_run_count(),
-                                 unit_test.test_suite_to_run_count());
+                                  unit_test.test_to_run_count(),
+                                  unit_test.test_suite_to_run_count());
         }
 
         void OnTestSuiteStart(const ::testing::TestSuite& test_suite) override
         {
             m_logger.logFormatted(LogLevel::Info, "[----------] %d tests from %s",
-                                 test_suite.test_to_run_count(),
-                                 test_suite.name());
+                                  test_suite.test_to_run_count(),
+                                  test_suite.name());
         }
 
         void OnTestStart(const ::testing::TestInfo& test_info) override
         {
             m_logger.logFormatted(LogLevel::Info, "[ RUN      ] %s.%s",
-                                 test_info.test_suite_name(),
-                                 test_info.name());
+                                  test_info.test_suite_name(),
+                                  test_info.name());
         }
 
         void OnTestPartResult(const ::testing::TestPartResult& result) override
@@ -166,44 +159,44 @@ namespace rtt::unittest
 
             const char* type = result.failed() ? "FAILURE" : "SUCCESS";
             m_logger.logFormatted(LogLevel::Error, "[  FAILED  ] %s:%d: %s",
-                                 result.file_name() ? result.file_name() : "unknown",
-                                 result.line_number(),
-                                 result.message());
+                                  result.file_name() ? result.file_name() : "unknown",
+                                  result.line_number(),
+                                  result.message());
         }
 
         void OnTestEnd(const ::testing::TestInfo& test_info) override
         {
             const char* result = test_info.result()->Passed() ? "       OK" : "  FAILED";
             m_logger.logFormatted(LogLevel::Info, "[%s] %s.%s (%lld ms)",
-                                 result,
-                                 test_info.test_suite_name(),
-                                 test_info.name(),
-                                 test_info.result()->elapsed_time());
+                                  result,
+                                  test_info.test_suite_name(),
+                                  test_info.name(),
+                                  test_info.result()->elapsed_time());
         }
 
         void OnTestSuiteEnd(const ::testing::TestSuite& test_suite) override
         {
             m_logger.logFormatted(LogLevel::Info, "[----------] %d tests from %s (%lld ms total)",
-                                 test_suite.test_to_run_count(),
-                                 test_suite.name(),
-                                 test_suite.elapsed_time());
+                                  test_suite.test_to_run_count(),
+                                  test_suite.name(),
+                                  test_suite.elapsed_time());
         }
 
         void OnTestProgramEnd(const ::testing::UnitTest& unit_test) override
         {
             m_logger.info("=== Test Program End ===");
             m_logger.logFormatted(LogLevel::Info, "[==========] %d tests from %d test suites ran (%lld ms total)",
-                                 unit_test.test_to_run_count(),
-                                 unit_test.test_suite_to_run_count(),
-                                 unit_test.elapsed_time());
+                                  unit_test.test_to_run_count(),
+                                  unit_test.test_suite_to_run_count(),
+                                  unit_test.elapsed_time());
 
             m_logger.logFormatted(LogLevel::Info, "[  PASSED  ] %d tests",
-                                 unit_test.successful_test_count());
+                                  unit_test.successful_test_count());
 
             if (unit_test.failed_test_count() > 0)
             {
                 m_logger.logFormatted(LogLevel::Error, "[  FAILED  ] %d tests",
-                                     unit_test.failed_test_count());
+                                      unit_test.failed_test_count());
             }
         }
 

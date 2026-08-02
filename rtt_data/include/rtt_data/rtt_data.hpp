@@ -1,12 +1,12 @@
 #pragma once
 
+#include <array>
+#include <bit>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <type_traits>
-
-#if __cplusplus >= 202002L
-#include <span>
-#endif
+#include <utility>
 
 // Forward declare SEGGER RTT functions
 extern "C" {
@@ -49,11 +49,9 @@ namespace rtt::data
     static constexpr uint8_t DATA_MAGIC_0 = 'R';
     static constexpr uint8_t DATA_MAGIC_1 = 'D';
 
-#if __cplusplus >= 202002L
-    // C++20 Concept for data types that can be sent
+    /// C++23 concept: trivially copyable types that can be sent over RTT
     template <typename T>
     concept Sendable = std::is_trivially_copyable_v<std::remove_cvref_t<T>>;
-#endif
 
     /**
      * @brief Generic RTT data sender class
@@ -81,14 +79,9 @@ namespace rtt::data
          * @param value Value to send
          * @return Number of bytes sent
          */
-#if __cplusplus >= 202002L
         template <typename T>
             requires std::is_integral_v<T>
         size_t sendInt(T value) noexcept;
-#else
-        template <typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
-        size_t sendInt(T value) noexcept;
-#endif
 
         /**
          * @brief Send a floating-point value
@@ -96,14 +89,9 @@ namespace rtt::data
          * @param value Value to send
          * @return Number of bytes sent
          */
-#if __cplusplus >= 202002L
         template <typename T>
             requires std::is_floating_point_v<T>
         size_t sendFloat(T value) noexcept;
-#else
-        template <typename T, typename std::enable_if<std::is_floating_point<T>::value, int>::type = 0>
-        size_t sendFloat(T value) noexcept;
-#endif
 
         /**
          * @brief Send a string
@@ -120,17 +108,10 @@ namespace rtt::data
          */
         size_t sendBinary(const void* data, size_t size) noexcept;
 
-#if __cplusplus >= 202002L
-        /**
-         * @brief Send binary data (C++20 span interface)
-         * @param data Span of data to send
-         * @return Number of bytes sent
-         */
         size_t sendBinary(std::span<const uint8_t> data) noexcept
         {
             return sendBinary(data.data(), data.size());
         }
-#endif
 
         /**
          * @brief Send a generic trivially copyable type
@@ -138,21 +119,12 @@ namespace rtt::data
          * @param value Value to send
          * @return Number of bytes sent
          */
-#if __cplusplus >= 202002L
         template <typename T>
             requires Sendable<T>
         size_t send(const T& value) noexcept
         {
             return sendBinary(&value, sizeof(T));
         }
-#else
-        template <typename T>
-        typename std::enable_if<std::is_trivially_copyable<T>::value, size_t>::type
-        send(const T& value) noexcept
-        {
-            return sendBinary(&value, sizeof(T));
-        }
-#endif
 
         /**
          * @brief Enable or disable automatic timestamping
@@ -289,7 +261,6 @@ namespace rtt::data
     DataSender& getDataSender() noexcept;
 
     // Template implementations
-#if __cplusplus >= 202002L
     template <typename T>
         requires std::is_integral_v<T>
     size_t DataSender::sendInt(T value) noexcept
@@ -303,17 +274,4 @@ namespace rtt::data
     {
         return sendWithHeader(getFloatType<T>(), &value, sizeof(T));
     }
-#else
-    template <typename T, typename std::enable_if<std::is_integral<T>::value, int>::type>
-    size_t DataSender::sendInt(T value) noexcept
-    {
-        return sendWithHeader(getIntType<T>(), &value, sizeof(T));
-    }
-
-    template <typename T, typename std::enable_if<std::is_floating_point<T>::value, int>::type>
-    size_t DataSender::sendFloat(T value) noexcept
-    {
-        return sendWithHeader(getFloatType<T>(), &value, sizeof(T));
-    }
-#endif
 } // namespace rtt::data

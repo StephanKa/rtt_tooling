@@ -1,7 +1,8 @@
 #include <rtt_freertos_trace/rtt_freertos_trace.hpp>
 #include <SEGGER_RTT.h>
-#include <string.h>
 #include <cstdio>
+#include <cstring>
+#include <utility>
 
 constexpr size_t MAX_TASK_NAME_LEN{16};
 constexpr size_t MAX_REGISTERED_TASKS{32};
@@ -143,7 +144,7 @@ void rtt_trace_record_event(TraceEventType event_type, uint32_t handle, uint32_t
     }
 
     TraceEvent event;
-    event.event_type = static_cast<uint8_t>(event_type);
+    event.event_type = std::to_underlying(event_type);
     event.timestamp = rtt_trace_get_timestamp();
     event.handle = handle;
     event.data = data;

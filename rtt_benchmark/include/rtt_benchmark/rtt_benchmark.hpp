@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cstdint>
 #include <algorithm>
-#include <numeric>
 #include <functional>
 #include <rtt_logger/rtt_logger.hpp>
 #include <string_view>
@@ -14,7 +13,7 @@ namespace rtt::benchmark
 {
     // Default CPU frequency for ARM platforms if not defined externally
     constexpr auto F_CPU{80'000'000}; // 80 MHz default
-    template<uint64_t CPUFrequencyHz>
+    template <uint64_t CPUFrequencyHz>
     struct Clock
     {
         using rep = std::int64_t;
@@ -25,14 +24,17 @@ namespace rtt::benchmark
         static inline auto DWT_CYCCNT = reinterpret_cast<uint32_t*>(0xE0001004);
 
         static time_point now() noexcept { return time_point{duration{getTicks()}}; }
-        static uint64_t getTicks() noexcept {
+
+        static uint64_t getTicks() noexcept
+        {
             static uint32_t last_count = 0;
             static uint32_t overflow_count = 0;
 
             const uint32_t current = *DWT_CYCCNT;
 
             // Detect overflow (wrapped around)
-            if (current < last_count) {
+            if (current < last_count)
+            {
                 ++overflow_count;
             }
 
@@ -48,7 +50,6 @@ namespace rtt::benchmark
     class CycleCounter
     {
     public:
-
         CycleCounter()
         {
             resetCounter();
@@ -56,7 +57,8 @@ namespace rtt::benchmark
             m_startTime = DwtClock::now();
         }
 
-        static bool initialize() noexcept {
+        static bool initialize() noexcept
+        {
             // Enable DWT if not already enabled
             *SCB_DEMCR |= TRACE_MASK; // Enable trace
             *DWT_CYCCNT = 0U;
@@ -65,14 +67,15 @@ namespace rtt::benchmark
         }
 
 
-        template<typename T = std::chrono::microseconds>
+        template <typename T = std::chrono::microseconds>
         auto getTimeDiff() const
         {
             stopCounter();
             return std::chrono::duration_cast<T>(DwtClock::now() - m_startTime);
         }
 
-        static void reset() noexcept {
+        static void reset() noexcept
+        {
             resetCounter();
         }
 
@@ -201,7 +204,7 @@ namespace rtt::benchmark
          * @param timings Timing measurements
          * @return Calculated statistics
          */
-        template<size_t Size>
+        template <size_t Size>
         [[nodiscard]] static BenchmarkStats calculateStats(const std::array<uint32_t, Size>& timings) noexcept
         {
             if (timings.empty())
@@ -209,11 +212,12 @@ namespace rtt::benchmark
                 return {};
             }
             const auto [minimum, maximum] = std::ranges::minmax_element(timings);
+            const auto total = std::ranges::fold_left(timings, 0U, std::plus{});
             const BenchmarkStats stats{
                 .min = *minimum,
                 .max = *maximum,
-                .mean = static_cast<uint32_t>(std::accumulate(timings.begin(), timings.end(), 0U) / Size),
-                .total = (std::accumulate(timings.begin(), timings.end(), 0U)),
+                .mean = static_cast<uint32_t>(total / Size),
+                .total = total,
                 .iterations = Size,
             };
             return stats;
@@ -279,5 +283,4 @@ namespace rtt::benchmark
         const BenchmarkStats stats = run<Iterations>(std::forward<Func>(func));
         report(stats);
     }
-
 } // namespace rtt::benchmark

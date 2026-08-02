@@ -1,17 +1,19 @@
 #pragma once
 
+#include <bit>
+#include <concepts>
 #include <cstdint>
+#include <expected>
 #include <string_view>
 #include <type_traits>
-
-#if __cplusplus >= 202002L
-#include <concepts>
-#endif
+#include <utility>
 
 // Forward declare SEGGER RTT functions
 extern "C" {
 int SEGGER_RTT_printf(unsigned int BufferIndex, const char* sFormat, ...);
 unsigned int SEGGER_RTT_WriteString(unsigned int BufferIndex, const char* s);
+unsigned int SEGGER_RTT_Write(unsigned int BufferIndex, const void* pBuffer, unsigned int NumBytes);
+void SEGGER_RTT_Init(void);
 }
 
 namespace rtt
@@ -29,211 +31,141 @@ namespace rtt
         Critical
     };
 
-#if __cplusplus >= 202002L
-    // C++20 Concept for formattable types (safe for printf-style formatting)
+    /// C++23 concept: types safe for printf-style formatting
     template <typename T>
     concept Formattable = std::is_arithmetic_v<std::remove_cvref_t<T>> ||
         std::same_as<std::remove_cvref_t<T>, const char*> ||
         std::same_as<std::remove_cvref_t<T>, char*> ||
         std::same_as<std::remove_cvref_t<T>, void*> ||
         std::same_as<std::remove_cvref_t<T>, const void*>;
-#endif
 
     /**
-     * @brief Modern C++ wrapper for SEGGER RTT logging
+     * @brief Modern C++23 RTT logger with compile-time log level gating.
      *
-     * This class provides a type-safe, modern C++ interface for RTT logging
-     * using C++17/C++20 features like constexpr, string_view, concepts, and variadic templates.
+     * The MinLevel template parameter sets a compile-time floor: any log call with a
+     * level below MinLevel compiles to nothing — zero binary footprint on that call site.
+     *
+     * @tparam MinLevel Compile-time minimum log level (default: Trace = log everything).
+     *
+     * Example — strip Debug/Info from a production binary at compile time:
+     * @code
+     *   using ProdLogger = BasicLogger<LogLevel::Warning>;
+     * @endcode
      */
-    class Logger
+    template <LogLevel MinLevel = LogLevel::Trace>
+    class BasicLogger
     {
     public:
-        /**
-         * @brief Construct a new Logger object
-         * @param channel RTT channel number (default: 0)
-         * @param level Minimum log level to output (default: Info)
-         */
-        explicit constexpr Logger(uint32_t channel = 0, LogLevel level = LogLevel::Info) noexcept
+        explicit constexpr BasicLogger(uint32_t channel = 0, LogLevel level = MinLevel) noexcept
             : m_channel(channel), m_minLevel(level)
         {
         }
 
-        /**
-         * @brief Set the minimum log level
-         * @param level New minimum log level
-         */
-        constexpr void setMinLevel(LogLevel level) noexcept
+        constexpr void setMinLevel(LogLevel level) noexcept { m_minLevel = level; }
+        [[nodiscard]] constexpr LogLevel getMinLevel() const noexcept { return m_minLevel; }
+        [[nodiscard]] constexpr bool isEnabled(LogLevel level) const noexcept { return level >= m_minLevel; }
+
+        // ── Compile-time level overloads — zero cost when Level < MinLevel ────
+
+        template <LogLevel Level>
+        void log(std::string_view message) const noexcept
         {
-            m_minLevel = level;
+            if constexpr (Level >= MinLevel)
+            {
+                if (isEnabled(Level))
+                    logImpl(Level, message);
+            }
         }
 
-        /**
-         * @brief Get the current minimum log level
-         * @return Current minimum log level
-         */
-        [[nodiscard]] constexpr LogLevel getMinLevel() const noexcept
+        template <LogLevel Level, Formattable... Args>
+        void logFormatted(const char* format, Args&&... args) noexcept
         {
-            return m_minLevel;
+            if constexpr (Level >= MinLevel)
+            {
+                if (isEnabled(Level))
+                {
+                    SEGGER_RTT_WriteString(m_channel, getLevelString(Level));
+                    SEGGER_RTT_WriteString(m_channel, " ");
+                    SEGGER_RTT_printf(m_channel, format, std::forward<Args>(args)...);
+                    SEGGER_RTT_WriteString(m_channel, "\r\n");
+                }
+            }
         }
 
-        /**
-         * @brief Check if a log level is enabled
-         * @param level Log level to check
-         * @return true if enabled, false otherwise
-         */
-        [[nodiscard]] constexpr bool isEnabled(LogLevel level) const noexcept
+        // ── Runtime level overloads — for dynamic level selection ─────────────
+
+        void log(LogLevel level, std::string_view message) const noexcept
         {
-            return level >= m_minLevel;
+            if (level >= MinLevel && isEnabled(level))
+                logImpl(level, message);
         }
 
-        /**
-         * @brief Log a message with specified level
-         * @param level Log level
-         * @param message Message to log
-         */
-        void log(LogLevel level, std::string_view message) const noexcept;
-
-        /**
-         * @brief Log a formatted message with specified level
-         * @param level Log level
-         * @param format Format string
-         * @param args Format arguments
-         */
-#if __cplusplus >= 202002L
         template <Formattable... Args>
-        void logFormatted(LogLevel level, const char* format, Args&&... args) noexcept;
-#else
-        template <typename... Args>
-        void logFormatted(LogLevel level, const char* format, Args&&... args) noexcept;
-#endif
-
-        /**
-         * @brief Log trace message
-         */
-        void trace(std::string_view message) const noexcept
+        void logFormatted(LogLevel level, const char* format, Args&&... args) noexcept
         {
-            log(LogLevel::Trace, message);
+            if (level >= MinLevel && isEnabled(level))
+            {
+                SEGGER_RTT_WriteString(m_channel, getLevelString(level));
+                SEGGER_RTT_WriteString(m_channel, " ");
+                SEGGER_RTT_printf(m_channel, format, std::forward<Args>(args)...);
+                SEGGER_RTT_WriteString(m_channel, "\r\n");
+            }
         }
 
-        /**
-         * @brief Log debug message
-         */
-        void debug(std::string_view message) const noexcept
+        // ── Convenience wrappers ──────────────────────────────────────────────
+
+        void trace(std::string_view message) const noexcept { log<LogLevel::Trace>(message); }
+        void debug(std::string_view message) const noexcept { log<LogLevel::Debug>(message); }
+        void info(std::string_view message) const noexcept { log<LogLevel::Info>(message); }
+        void warning(std::string_view message) const noexcept { log<LogLevel::Warning>(message); }
+        void error(std::string_view message) const noexcept { log<LogLevel::Error>(message); }
+        void critical(std::string_view message) const noexcept { log<LogLevel::Critical>(message); }
+
+        [[nodiscard]] size_t write(const void* data, size_t size) const noexcept
         {
-            log(LogLevel::Debug, message);
+            return SEGGER_RTT_Write(m_channel, data, static_cast<unsigned>(size));
         }
 
-        /**
-         * @brief Log info message
-         */
-        void info(std::string_view message) const noexcept
+        /// Initialize RTT. Returns an empty expected on success, or an error string.
+        static std::expected<void, const char*> initialize() noexcept
         {
-            log(LogLevel::Info, message);
+            SEGGER_RTT_Init();
+            return {};
         }
-
-        /**
-         * @brief Log warning message
-         */
-        void warning(std::string_view message) const noexcept
-        {
-            log(LogLevel::Warning, message);
-        }
-
-        /**
-         * @brief Log error message
-         */
-        void error(std::string_view message) const noexcept
-        {
-            log(LogLevel::Error, message);
-        }
-
-        /**
-         * @brief Log critical message
-         */
-        void critical(std::string_view message) const noexcept
-        {
-            log(LogLevel::Critical, message);
-        }
-
-        /**
-         * @brief Write raw data to RTT buffer
-         * @param data Pointer to data
-         * @param size Size of data in bytes
-         * @return Number of bytes written
-         */
-        [[nodiscard]] size_t write(const void* data, size_t size) const noexcept;
-
-        /**
-         * @brief Initialize RTT
-         * @return true if successful, false otherwise
-         */
-        static bool initialize() noexcept;
 
     private:
         uint32_t m_channel;
         LogLevel m_minLevel;
 
+        void logImpl(LogLevel level, std::string_view message) const noexcept
+        {
+            SEGGER_RTT_WriteString(m_channel, getLevelString(level));
+            SEGGER_RTT_WriteString(m_channel, " ");
+            SEGGER_RTT_Write(m_channel, message.data(), static_cast<unsigned>(message.size()));
+            SEGGER_RTT_WriteString(m_channel, "\r\n");
+        }
+
         [[nodiscard]] static constexpr const char* getLevelString(LogLevel level) noexcept
         {
             switch (level)
             {
-            case LogLevel::Trace:
-                {
-                    return "[TRACE]";
-                }
-            case LogLevel::Debug:
-                {
-                    return "[DEBUG]";
-                }
-            case LogLevel::Info:
-                {
-                    return "[INFO]";
-                }
-            case LogLevel::Warning:
-                {
-                    return "[WARN]";
-                }
-            case LogLevel::Error:
-                {
-                    return "[ERROR]";
-                }
-            case LogLevel::Critical:
-                {
-                    return "[CRIT]";
-                }
-            default:
-                {
-                    return "[UNKNOWN]";
-                }
+            case LogLevel::Trace: return "[TRACE]";
+            case LogLevel::Debug: return "[DEBUG]";
+            case LogLevel::Info: return "[INFO]";
+            case LogLevel::Warning: return "[WARN]";
+            case LogLevel::Error: return "[ERROR]";
+            case LogLevel::Critical: return "[CRIT]";
             }
+            std::unreachable();
         }
     };
+
+    /// Default logger type — runtime m_minLevel is the sole gate; all levels active.
+    using Logger = BasicLogger<>;
 
     /**
      * @brief Get the global logger instance
      * @return Reference to global logger
      */
     Logger& getLogger() noexcept;
-
-    // Template implementation
-#if __cplusplus >= 202002L
-    template <Formattable... Args>
-#else
-    template <typename... Args>
-
-#endif
-    void Logger::logFormatted(LogLevel level, const char* format, Args&&... args) noexcept
-    {
-        if (!isEnabled(level))
-        {
-            return;
-        }
-
-        const char* levelStr = getLevelString(level);
-        SEGGER_RTT_WriteString(m_channel, levelStr);
-        SEGGER_RTT_WriteString(m_channel, " ");
-
-        SEGGER_RTT_printf(m_channel, format, std::forward<Args>(args)...);
-        SEGGER_RTT_WriteString(m_channel, "\r\n");
-    }
 } // namespace rtt

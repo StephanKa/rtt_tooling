@@ -1,7 +1,8 @@
 #include <rtt_logger/rtt_logger.hpp>
 #include <rtt_memory_dump/rtt_memory_dump.hpp>
-#include <cstdint>
 #include <array>
+#include <cstdint>
+#include <span>
 
 // Example structures to demonstrate memory dumping
 struct SensorData
@@ -135,11 +136,10 @@ int main()
         dumper.dump(data.data(), sizeof(data), "32-bit integer array");
     }
 
-#if __cplusplus >= 202002L
-    // Example 7: C++20 span-based dump
+    // Example 7: span-based dump
     {
         logger.info("");
-        logger.info("Example 7: C++20 span-based memory dump");
+        logger.info("Example 7: span-based memory dump");
         logger.info("-------------------------------------------");
 
         std::array<uint8_t, 16> buffer = {
@@ -148,10 +148,8 @@ int main()
         };
 
         rtt::memory_dump::MemoryDumper dumper(logger);
-        std::span<const uint8_t> buffer_span(buffer);
-        dumper.dump(buffer_span, "Sequential byte pattern");
+        dumper.dump(std::as_bytes(std::span{buffer}), "Sequential byte pattern");
     }
-#endif
 
     logger.info("");
     logger.info("===========================================");

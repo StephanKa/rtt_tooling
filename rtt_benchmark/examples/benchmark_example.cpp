@@ -58,7 +58,7 @@ int main()
         logger.info("-------------------------------------------");
 
         rtt::benchmark::Benchmark bench("QuickOperation", logger);
-        bench.runAndReport<100>(quickOperation);
+        bench.runAndReport < 100 > (quickOperation);
     }
 
     // Example 2: Benchmark with manual stats handling
@@ -68,7 +68,7 @@ int main()
         logger.info("-------------------------------------------");
 
         rtt::benchmark::Benchmark bench("MediumOperation", logger);
-        const auto stats = bench.run<50>(mediumOperation);
+        const auto stats = bench.run < 50 > (mediumOperation);
 
         // You can use stats programmatically before reporting
         if (stats.mean > 1000)
@@ -88,12 +88,12 @@ int main()
         rtt::benchmark::Benchmark bench("ComplexOperation", logger);
 
         logger.info("Running with 10 iterations:");
-        const auto stats10 = bench.run<10>(complexOperation);
+        const auto stats10 = bench.run < 10 > (complexOperation);
         bench.report(stats10);
 
         logger.info("");
         logger.info("Running with 100 iterations:");
-        const auto stats100 = bench.run<100>(complexOperation);
+        const auto stats100 = bench.run < 100 > (complexOperation);
         bench.report(stats100);
     }
 

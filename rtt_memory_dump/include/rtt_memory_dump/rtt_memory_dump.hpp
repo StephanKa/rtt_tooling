@@ -2,11 +2,8 @@
 
 #include <rtt_logger/rtt_logger.hpp>
 #include <cstdint>
-#include <string_view>
-
-#if __cplusplus >= 202002L
 #include <span>
-#endif
+#include <string_view>
 
 namespace rtt::memory_dump
 {
@@ -77,14 +74,12 @@ namespace rtt::memory_dump
          */
         void dump(const void* data, size_t size, std::string_view description = "") noexcept;
 
-#if __cplusplus >= 202002L
         /**
-         * @brief Dump a memory region via RTT (C++20 span version)
+         * @brief Dump a memory region via RTT (span version)
          * @param data Span of bytes to dump
          * @param description Optional description of the memory region
          */
-        void dump(std::span<const uint8_t> data, std::string_view description = "") noexcept;
-#endif
+        void dump(std::span<const std::byte> data, std::string_view description = "") noexcept;
 
         /**
          * @brief Dump a typed object's memory representation
@@ -194,8 +189,6 @@ namespace rtt::memory_dump
     template <typename T>
     void MemoryDumper::dumpObject(const T& obj, std::string_view description) noexcept
     {
-        const auto data = reinterpret_cast<const uint8_t*>(&obj);
-        constexpr size_t size = sizeof(T);
-        dump(data, size, description);
+        dump(std::as_bytes(std::span{&obj, 1}), description);
     }
 } // namespace rtt::memory_dump

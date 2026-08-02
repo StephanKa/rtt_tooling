@@ -5,6 +5,7 @@
 
 #ifdef __cplusplus
 #include <string_view>
+
 extern "C" {
 #endif
 
@@ -56,41 +57,41 @@ void vApplicationDaemonTaskStartupHook(void* pvParameters);
 #ifdef __cplusplus
 }
 
-namespace rtt::freertos {
-
-/**
- * @brief C++ interface for FreeRTOS RTT hooks
- */
-class FreeRtosHooks {
-public:
+namespace rtt::freertos
+{
     /**
-     * @brief Enable or disable verbose hook logging
-     * @param enable true to enable, false to disable
+     * @brief C++ interface for FreeRTOS RTT hooks
      */
-    static void setVerbose(bool enable) noexcept;
+    class FreeRtosHooks
+    {
+    public:
+        /**
+         * @brief Enable or disable verbose hook logging
+         * @param enable true to enable, false to disable
+         */
+        static void setVerbose(bool enable) noexcept;
 
-    /**
-     * @brief Check if verbose logging is enabled
-     * @return true if enabled, false otherwise
-     */
-    [[nodiscard]] static bool isVerbose() noexcept;
+        /**
+         * @brief Check if verbose logging is enabled
+         * @return true if enabled, false otherwise
+         */
+        [[nodiscard]] static bool isVerbose() noexcept;
 
-    /**
-     * @brief Log task information via RTT (using std::string_view)
-     * @param taskName Name of the task
-     * @param message Message to log
-     */
-    static void logTaskInfo(std::string_view taskName, std::string_view message) noexcept;
+        /**
+         * @brief Log task information via RTT (using std::string_view)
+         * @param taskName Name of the task
+         * @param message Message to log
+         */
+        static void logTaskInfo(std::string_view taskName, std::string_view message) noexcept;
 
-    /**
-     * @brief Log system statistics via RTT
-     */
-    static void logSystemStats() noexcept;
+        /**
+         * @brief Log system statistics via RTT
+         */
+        static void logSystemStats() noexcept;
 
-private:
-    static inline bool m_verbose{false};
-};
-
+    private:
+        static inline bool m_verbose{false};
+    };
 } // namespace rtt::freertos
 
 #endif // __cplusplus

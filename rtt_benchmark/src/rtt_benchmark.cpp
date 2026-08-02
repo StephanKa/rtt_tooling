@@ -2,7 +2,6 @@
 
 namespace rtt::benchmark
 {
-
     void Benchmark::verifyClockResolution(Logger& logger) noexcept
     {
 #ifdef __ARM_ARCH
@@ -138,5 +137,4 @@ namespace rtt::benchmark
         m_logger.logFormatted(LogLevel::Info, "[%.*s] Elapsed time: %lld us", static_cast<int>(m_name.length()),
                               m_name.data(), duration.count());
     }
-
 } // namespace rtt::benchmark

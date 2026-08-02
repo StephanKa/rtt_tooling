@@ -62,15 +62,13 @@ int main()
     } __attribute__((packed));
 
     logger.info("Sending custom struct...");
-    constexpr SensorData sensor {23.5f, 65.2f, 101325};
+    constexpr SensorData sensor{23.5f, 65.2f, 101325};
     dataSender.send(sensor);
 
-#if __cplusplus >= 202002L
-    // Example 7: C++20 span interface
-    logger.info("Sending data via span (C++20)...");
+    // Example 7: span interface
+    logger.info("Sending data via span...");
     const std::span<const uint8_t> dataSpan(binaryData, sizeof(binaryData));
     dataSender.sendBinary(dataSpan);
-#endif
 
     logger.info("RTT Data Example Completed");
 
