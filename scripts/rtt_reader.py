@@ -48,7 +48,14 @@ class RttReader(ABC):
 class OpenOcdRttReader(RttReader):
     """RTT reader using OpenOCD telnet interface"""
 
-    def __init__(self, host: str = "localhost", port: int = 4444):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 4444,
+        rtt_port: int = 9090,
+        search_address: int = 0x20000000,
+        search_size: int = 0x20000,
+    ):
         """
         Initialize OpenOCD RTT reader
 
@@ -58,7 +65,12 @@ class OpenOcdRttReader(RttReader):
         """
         self.host = host
         self.port = port
+        self.rtt_port = rtt_port
+        self.search_address = search_address
+        self.search_size = search_size
         self.socket: Optional[socket.socket] = None
+        self.data_socket: Optional[socket.socket] = None
+        self._data_channel: Optional[int] = None
         self._connected = False
 
     def connect(self) -> bool:
@@ -68,34 +80,53 @@ class OpenOcdRttReader(RttReader):
             self.socket.settimeout(5.0)
             self.socket.connect((self.host, self.port))
 
-            # Read welcome message
-            self.socket.recv(4096)
+            self._read_until_prompt()
 
             # Setup RTT
-            self._send_command('rtt setup 0x20000000 0x10000 "SEGGER RTT"')
-            time.sleep(0.1)
-            self._send_command("rtt start")
-            time.sleep(0.1)
+            setup_response = self._send_command(f'rtt setup 0x{self.search_address:X} 0x{self.search_size:X} "SEGGER RTT"')
+            start_response = self._send_command("rtt start")
+            if "error" in setup_response.lower() or "error" in start_response.lower():
+                raise ConnectionError(f"OpenOCD rejected RTT setup: {setup_response}{start_response}")
 
             self._connected = True
             print(f"Connected to OpenOCD at {self.host}:{self.port}")
             return True
         except Exception as e:
             print(f"Failed to connect to OpenOCD: {e}", file=sys.stderr)
-            self._connected = False
+            self.disconnect()
             return False
 
     def disconnect(self) -> None:
         """Disconnect from OpenOCD"""
         if self.socket:
             try:
+                if self.data_socket:
+                    self.data_socket.close()
+                    self.data_socket = None
+                if self._data_channel is not None:
+                    self._send_command(f"rtt server stop {self.rtt_port}")
                 self._send_command("rtt stop")
                 self.socket.close()
             except Exception:
                 pass
             finally:
                 self.socket = None
+                self.data_socket = None
+                self._data_channel = None
                 self._connected = False
+
+    def _read_until_prompt(self) -> str:
+        """Read one OpenOCD command response, including fragmented prompts."""
+        if not self.socket:
+            return ""
+
+        response = bytearray()
+        while not response.endswith(b"> "):
+            chunk = self.socket.recv(4096)
+            if not chunk:
+                raise ConnectionError("OpenOCD command connection closed")
+            response.extend(chunk)
+        return bytes(response[:-2]).decode("utf-8", errors="replace")
 
     def _send_command(self, command: str) -> str:
         """Send command to OpenOCD and get response"""
@@ -104,38 +135,55 @@ class OpenOcdRttReader(RttReader):
 
         try:
             self.socket.sendall((command + "\n").encode())
-            time.sleep(0.05)
-            return self.socket.recv(4096).decode("utf-8", errors="ignore")
+            return self._read_until_prompt()
         except Exception as e:
             print(f"Command error: {e}", file=sys.stderr)
             return ""
 
+    def _open_data_socket(self, channel: int) -> bool:
+        """Start and connect to OpenOCD's raw RTT TCP server."""
+        if self._data_channel == channel and self.data_socket:
+            return True
+
+        if self.data_socket:
+            self.data_socket.close()
+            self.data_socket = None
+        if self._data_channel is not None:
+            self._send_command(f"rtt server stop {self.rtt_port}")
+
+        response = self._send_command(f"rtt server start {self.rtt_port} {channel}")
+        if "error" in response.lower():
+            print(f"Failed to start OpenOCD RTT server: {response.strip()}", file=sys.stderr)
+            return False
+
+        try:
+            self.data_socket = socket.create_connection((self.host, self.rtt_port), timeout=5.0)
+            self.data_socket.settimeout(0.1)
+            self._data_channel = channel
+            return True
+        except OSError as e:
+            print(f"Failed to connect to OpenOCD RTT server: {e}", file=sys.stderr)
+            self.data_socket = None
+            return False
+
     def read_rtt(self, channel: int = 0, size: int = 1024) -> Optional[bytes]:
         """Read data from RTT channel via OpenOCD"""
-        if not self._connected or not self.socket:
+        if not self._connected or not self.socket or not self._open_data_socket(channel):
             return None
 
         try:
-            # OpenOCD RTT polling command
-            response = self._send_command(f"rtt server {channel}")
-            if response:
-                # Extract actual RTT data from response
-                # OpenOCD returns data in various formats, we need to parse it
-                lines = response.split("\n")
-                data = []
-                for line in lines:
-                    # Skip command echo and prompt
-                    if line.startswith(">") or "rtt" in line.lower():
-                        continue
-                    if line.strip():
-                        data.append(line)
-
-                if data:
-                    return "\n".join(data).encode("utf-8")
-
+            data = self.data_socket.recv(size) if self.data_socket else b""
+            if not data:
+                raise ConnectionError("OpenOCD RTT data connection closed")
+            return data
+        except socket.timeout:
             return None
         except Exception as e:
             print(f"Read error: {e}", file=sys.stderr)
+            if self.data_socket:
+                self.data_socket.close()
+            self.data_socket = None
+            self._data_channel = None
             return None
 
     def is_connected(self) -> bool:
@@ -322,6 +370,9 @@ Examples:
     openocd_group = parser.add_argument_group("OpenOCD options")
     openocd_group.add_argument("--host", default="localhost", help="OpenOCD telnet host (default: localhost)")
     openocd_group.add_argument("--port", type=int, default=4444, help="OpenOCD telnet port (default: 4444)")
+    openocd_group.add_argument("--rtt-port", type=int, default=9090, help="OpenOCD RTT TCP server port (default: 9090)")
+    openocd_group.add_argument("--search-address", type=lambda value: int(value, 0), default=0x20000000, help="RTT control-block search start address")
+    openocd_group.add_argument("--search-size", type=lambda value: int(value, 0), default=0x20000, help="RTT control-block search size")
 
     # J-Link options
     jlink_group = parser.add_argument_group("J-Link options")
@@ -338,7 +389,7 @@ Examples:
 
     # Create appropriate reader
     if args.backend == "openocd":
-        reader = OpenOcdRttReader(host=args.host, port=args.port)
+        reader = OpenOcdRttReader(host=args.host, port=args.port, rtt_port=args.rtt_port, search_address=args.search_address, search_size=args.search_size)
     else:  # jlink
         reader = JLinkRttReader(device=args.device, interface=args.interface, speed=args.speed)
 

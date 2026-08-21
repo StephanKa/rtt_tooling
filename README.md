@@ -16,7 +16,7 @@ A comprehensive C++23 toolkit for SEGGER Real-Time Transfer (RTT) with support f
   - `std::to_underlying()` for enum → integer casts
 - **External SEGGER RTT library** fetched automatically via CMake FetchContent
 - **CMake & Ninja** build system with presets
-- **Configurable C++ standard** (17, 20, 23) via CMake option
+- **C++23 required** consistently across all C++ targets
 - **ARM GCC toolchain** support for STM32F205
 - **GoogleTest integration** for unit testing with RTT output support
 - **Host-side RTT reading** via OpenOCD and SEGGER J-Link
@@ -151,7 +151,7 @@ rtt_tooling/
 
 ### C++ Standard
 
-The project requires **C++23**. The `RTT_CXX_STANDARD` CMake variable is set to `23` by default.
+The project requires **C++23**. The standard is enforced by the root CMake project.
 
 ```bash
 # Standard build (C++23)
@@ -201,7 +201,7 @@ ctest --preset testing
 ```bash
 # Native build
 mkdir build && cd build
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DRTT_CXX_STANDARD=23 ..
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
 ninja
 
 # ARM build for STM32F205
@@ -210,7 +210,6 @@ cmake -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE=../cmake/arm-none-eabi-gcc.cmake \
   -DTARGET_DEVICE=STM32F205 \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DRTT_CXX_STANDARD=23 \
   ..
 ninja
 ```

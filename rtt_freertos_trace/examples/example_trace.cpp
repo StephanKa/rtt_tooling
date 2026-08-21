@@ -40,7 +40,7 @@ void ledTask([[maybe_unused]] void* params)
         // HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
         // Simulate work
-        // vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
@@ -56,7 +56,7 @@ void uartTask([[maybe_unused]] void* params)
         // int len = UART_Receive(buffer, sizeof(buffer));
 
         // Simulate work
-        // vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -74,7 +74,7 @@ void sensorTask([[maybe_unused]] void* params)
         // xQueueSend(queueHandle, &sensor_value, portMAX_DELAY);
 
         // Simulate work
-        // vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
@@ -84,7 +84,7 @@ void sensorTask([[maybe_unused]] void* params)
 void initializeTracing()
 {
     // Initialize RTT logger (channel 0)
-    rtt::Logger::initialize();
+    (void)rtt::Logger::initialize();
     auto& logger = rtt::getLogger();
     logger.setMinLevel(rtt::LogLevel::Info);
     logger.info("RTT FreeRTOS Trace Example");
@@ -110,13 +110,13 @@ void createTasks()
     logger.info("Created sensor queue");
 
     // Create tasks
-    // xTaskCreate(ledTask, "LED", 128, nullptr, 1, (TaskHandle_t*)&ledTaskHandle);
+    xTaskCreate(ledTask, "LED", 128, nullptr, 1, (TaskHandle_t*)&ledTaskHandle);
     logger.info("Created LED task");
 
-    // xTaskCreate(uartTask, "UART", 256, nullptr, 2, (TaskHandle_t*)&uartTaskHandle);
+    xTaskCreate(uartTask, "UART", 256, nullptr, 2, (TaskHandle_t*)&uartTaskHandle);
     logger.info("Created UART task");
 
-    // xTaskCreate(sensorTask, "Sensor", 256, nullptr, 2, (TaskHandle_t*)&sensorTaskHandle);
+    xTaskCreate(sensorTask, "Sensor", 256, nullptr, 2, (TaskHandle_t*)&sensorTaskHandle);
     logger.info("Created Sensor task");
 
     // Register tasks with trace system for readable output

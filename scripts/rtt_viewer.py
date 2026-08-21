@@ -11,11 +11,22 @@ import sys
 import time
 from typing import Optional
 
+from rtt_reader import JLinkRttReader, OpenOcdRttReader, RttReader
+
 
 class RttViewer:
     """RTT output viewer for SEGGER J-Link"""
 
-    def __init__(self, device: str = "STM32F205RB", interface: str = "SWD", speed: int = 4000):
+    def __init__(
+        self,
+        device: str = "STM32F205RB",
+        interface: str = "SWD",
+        speed: int = 4000,
+        backend: str = "jlink",
+        host: str = "localhost",
+        port: int = 4444,
+        rtt_port: int = 9090,
+    ):
         """
         Initialize RTT viewer
 
@@ -27,7 +38,14 @@ class RttViewer:
         self.device = device
         self.interface = interface
         self.speed = speed
+        self.backend = backend
         self.running = False
+        if backend == "jlink":
+            self.reader: RttReader = JLinkRttReader(device=device, interface=interface, speed=speed)
+        elif backend == "openocd":
+            self.reader = OpenOcdRttReader(host=host, port=port, rtt_port=rtt_port)
+        else:
+            raise ValueError(f"Unknown backend: {backend}")
 
     def connect(self) -> bool:
         """
@@ -36,15 +54,12 @@ class RttViewer:
         Returns:
             True if connection successful, False otherwise
         """
-        print(f"Connecting to {self.device} via {self.interface} @ {self.speed} kHz...")
-        # In a real implementation, this would use pylink or similar
-        print("Note: This is a placeholder. Install pylink for actual RTT support.")
-        return True
+        return self.reader.connect()
 
     def disconnect(self):
         """Disconnect from target device"""
-        print("Disconnecting...")
         self.running = False
+        self.reader.disconnect()
 
     def read_rtt(self, channel: int = 0) -> Optional[str]:
         """
@@ -56,8 +71,8 @@ class RttViewer:
         Returns:
             String data if available, None otherwise
         """
-        # Placeholder implementation
-        return None
+        data = self.reader.read_rtt(channel)
+        return data.decode("utf-8", errors="replace") if data else None
 
     def run(self, channel: int = 0):
         """
@@ -89,14 +104,26 @@ class RttViewer:
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description="RTT Logger Viewer - Monitor SEGGER RTT output")
+    parser.add_argument("-b", "--backend", choices=["jlink", "openocd"], default="jlink", help="RTT backend (default: jlink)")
     parser.add_argument("-d", "--device", default="STM32F205RB", help="Target device name (default: STM32F205RB)")
     parser.add_argument("-i", "--interface", choices=["SWD", "JTAG"], default="SWD", help="Debug interface (default: SWD)")
     parser.add_argument("-s", "--speed", type=int, default=4000, help="Interface speed in kHz (default: 4000)")
     parser.add_argument("-c", "--channel", type=int, default=0, help="RTT channel number (default: 0)")
+    parser.add_argument("--host", default="localhost", help="OpenOCD host (default: localhost)")
+    parser.add_argument("--port", type=int, default=4444, help="OpenOCD command port (default: 4444)")
+    parser.add_argument("--rtt-port", type=int, default=9090, help="OpenOCD RTT data port (default: 9090)")
 
     args = parser.parse_args()
 
-    viewer = RttViewer(device=args.device, interface=args.interface, speed=args.speed)
+    viewer = RttViewer(
+        device=args.device,
+        interface=args.interface,
+        speed=args.speed,
+        backend=args.backend,
+        host=args.host,
+        port=args.port,
+        rtt_port=args.rtt_port,
+    )
     viewer.run(channel=args.channel)
 
 

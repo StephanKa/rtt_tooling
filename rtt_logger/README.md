@@ -4,18 +4,18 @@ A modern C++ logger library using SEGGER Real-Time Transfer (RTT) for embedded s
 
 ## Features
 
-- **Modern C++17/20/23** with type-safe interfaces
+- **C++23** type-safe interfaces
 - **Multiple log levels**: Trace, Debug, Info, Warning, Error, Critical
-- **Printf-style formatted logging** with compile-time type checking (C++20)
+- **Printf-style formatted logging** constrained to supported argument types
 - **Zero-copy string_view** support for efficient string handling
 - **Configurable log level filtering** at runtime
 - **Minimal overhead** - optimized for embedded systems
 - **Thread-safe** RTT output
-- **C++20 concepts** for enhanced type safety (when available)
+- **C++23 concepts** for argument constraints
 
 ## Requirements
 
-- C++17 or later (C++20 recommended for full feature set)
+- C++23
 - SEGGER RTT library (automatically fetched by CMake)
 - CMake 3.20 or later
 
@@ -38,11 +38,11 @@ target_link_libraries(your_application
 int main() {
     // Initialize RTT
     rtt::Logger::initialize();
-    
+
     // Get global logger instance
     auto& logger = rtt::getLogger();
     logger.setMinLevel(rtt::LogLevel::Debug);
-    
+
     // Log messages at different levels
     logger.trace("Detailed trace information");
     logger.debug("Debug information");
@@ -50,11 +50,11 @@ int main() {
     logger.warning("Warning message");
     logger.error("Error occurred");
     logger.critical("Critical failure!");
-    
+
     // Formatted logging
     int value = 42;
     logger.logFormatted(rtt::LogLevel::Info, "Value: %d", value);
-    
+
     return 0;
 }
 ```
@@ -139,22 +139,14 @@ cmake --build --preset arm-stm32f205
 
 ## C++ Standard Features
 
-### C++17 (Baseline)
-- `string_view` for efficient string handling
-- `constexpr` for compile-time optimizations
-- Type traits for template metaprogramming
-
-### C++20 (Recommended)
+### C++23
 - **Concepts** for compile-time type checking
   ```cpp
   template<typename T>
   concept Formattable = /* type constraints */;
   ```
-- Enhanced `constexpr` support
-- Safer type conversions
-
-### C++23
-- All C++20 features plus latest standard improvements
+- `std::expected` for initialization results
+- `std::unreachable` for exhaustive enum handling
 
 ## Performance
 
@@ -167,14 +159,14 @@ cmake --build --preset arm-stm32f205
 
 1. **Initialize early**: Call `Logger::initialize()` before any logging
 2. **Set appropriate level**: Use `setMinLevel()` to filter unnecessary messages
-3. **Use appropriate levels**: 
+3. **Use appropriate levels**:
    - Trace: Very detailed debugging
    - Debug: Development debugging
    - Info: Normal operation messages
    - Warning: Potential issues
    - Error: Errors that don't stop execution
    - Critical: Fatal errors
-4. **Format carefully**: Use type-safe formatting in C++20 with concepts
+4. **Format carefully**: Ensure printf format specifiers match argument types
 5. **Avoid logging in ISRs**: RTT is generally safe but keep ISR logging minimal
 
 ## Troubleshooting

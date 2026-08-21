@@ -1,12 +1,13 @@
 #pragma once
 
-#include <chrono>
-#include <cstdint>
+#include <array>
 #include <algorithm>
+#include <chrono>
+#include <concepts>
+#include <cstdint>
 #include <functional>
 #include <rtt_logger/rtt_logger.hpp>
 #include <string_view>
-#include <concepts>
 
 
 namespace rtt::benchmark
@@ -27,21 +28,7 @@ namespace rtt::benchmark
 
         static uint64_t getTicks() noexcept
         {
-            static uint32_t last_count = 0;
-            static uint32_t overflow_count = 0;
-
-            const uint32_t current = *DWT_CYCCNT;
-
-            // Detect overflow (wrapped around)
-            if (current < last_count)
-            {
-                ++overflow_count;
-            }
-
-            last_count = current;
-
-            // Combine overflow count and current count into 64-bit value
-            return (static_cast<uint64_t>(overflow_count) << 32) | current;
+            return *DWT_CYCCNT;
         }
     };
 
@@ -52,6 +39,7 @@ namespace rtt::benchmark
     public:
         CycleCounter()
         {
+            initialize();
             resetCounter();
             startCounter();
             m_startTime = DwtClock::now();
@@ -63,7 +51,7 @@ namespace rtt::benchmark
             *SCB_DEMCR |= TRACE_MASK; // Enable trace
             *DWT_CYCCNT = 0U;
             startCounter();
-            return (*DWT_CYCCNT & DWT_CTRL_CYCCNTENA) != 0;
+            return (*DWT_CONTROL & DWT_CTRL_CYCCNTENA) != 0;
         }
 
 
@@ -79,11 +67,7 @@ namespace rtt::benchmark
             resetCounter();
         }
 
-        ~CycleCounter()
-        {
-            resetCounter();
-            *SCB_DEMCR &= ~TRACE_MASK;
-        }
+        ~CycleCounter() = default;
 
     private:
         DwtClock::time_point m_startTime{};

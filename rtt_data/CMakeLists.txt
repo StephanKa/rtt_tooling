@@ -19,7 +19,7 @@ target_link_libraries(rtt_data
         SEGGER_RTT
 )
 
-target_compile_features(rtt_data PUBLIC cxx_std_${RTT_CXX_STANDARD})
+target_compile_features(rtt_data PUBLIC cxx_std_23)
 
 # Add compile options
 target_compile_options(rtt_data PRIVATE
@@ -32,7 +32,7 @@ if(BUILD_EXAMPLES)
     add_executable(data_example
         examples/data_example.cpp
     )
-    
+
     target_link_libraries(data_example
         PRIVATE
             rtt_data

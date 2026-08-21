@@ -2,9 +2,16 @@
 
 import json
 import struct
+import zlib
 from pathlib import Path
 
 from rtt_trace_analyzer import TraceAnalyzer, TraceEvent, TraceParser
+
+
+def make_event(event_type: int, timestamp: int, handle: int, data: int = 0, dropped: int = 0) -> bytes:
+    """Build a framed trace event for tests."""
+    prefix = struct.pack("<2sBBIIII", b"RT", 2, event_type, dropped, timestamp, handle, data)
+    return prefix + struct.pack("<I", zlib.crc32(prefix))
 
 
 class TestTraceEvent:
@@ -43,8 +50,7 @@ class TestTraceParser:
     def test_parse_valid_event(self, temp_dir: Path) -> None:
         """Test parsing a valid trace event."""
         trace_file = temp_dir / "trace.bin"
-        # Create a valid event: event_type (1 byte), timestamp (4 bytes), handle (4 bytes), data (4 bytes)
-        event_data = struct.pack("<BIII", 0x01, 12345, 0x20000100, 0)
+        event_data = make_event(0x01, 12345, 0x20000100)
         trace_file.write_bytes(event_data)
 
         parser = TraceParser(trace_file)
@@ -60,7 +66,7 @@ class TestTraceParser:
         events_data = b""
         # Create multiple events
         for event_type in [0x01, 0x02, 0x10, 0x11]:
-            events_data += struct.pack("<BIII", event_type, 12345, 0x20000100, 0)
+            events_data += make_event(event_type, 12345, 0x20000100)
         trace_file.write_bytes(events_data)
 
         parser = TraceParser(trace_file)
@@ -109,6 +115,40 @@ class TestTraceParser:
         seconds = parser.timestamp_to_seconds(168000000)
         assert abs(seconds - 1.0) < 0.001  # Should be 1 second
 
+    def test_ignores_unframed_false_positive(self, temp_dir: Path) -> None:
+        """Legacy-looking bytes are ignored without framing and CRC."""
+        trace_file = temp_dir / "noise.bin"
+        trace_file.write_bytes(bytes([0x01]) + bytes(32))
+
+        parser = TraceParser(trace_file)
+
+        assert parser.parse()
+        assert parser.events == []
+
+    def test_recovers_after_corrupt_frame(self, temp_dir: Path) -> None:
+        """A valid frame after a corrupt one is still parsed."""
+        trace_file = temp_dir / "recovery.bin"
+        corrupt = bytearray(make_event(0x01, 1, 1))
+        corrupt[-1] ^= 0xFF
+        trace_file.write_bytes(bytes(corrupt) + make_event(0x02, 2, 1, dropped=3))
+
+        parser = TraceParser(trace_file)
+
+        assert parser.parse()
+        assert len(parser.events) == 1
+        assert parser.events[0].event_type == 0x02
+        assert parser.events[0].dropped_events == 3
+
+    def test_unwraps_timestamp_rollover(self, temp_dir: Path) -> None:
+        """A 32-bit cycle-counter rollover preserves monotonic timestamps."""
+        trace_file = temp_dir / "rollover.bin"
+        trace_file.write_bytes(make_event(0x01, 0xFFFFFFF0, 1) + make_event(0x02, 0x10, 1))
+
+        parser = TraceParser(trace_file)
+
+        assert parser.parse()
+        assert parser.events[1].timestamp == (1 << 32) + 0x10
+
 
 class TestTraceAnalyzer:
     """Test TraceAnalyzer class."""
@@ -138,8 +178,7 @@ class TestTraceAnalyzer:
     def test_export_json(self, temp_dir: Path) -> None:
         """Test exporting trace to JSON."""
         trace_file = temp_dir / "trace.bin"
-        # Create a simple event
-        event_data = struct.pack("<BIII", 0x01, 12345, 0x20000100, 0)
+        event_data = make_event(0x01, 12345, 0x20000100)
         trace_file.write_bytes(event_data)
 
         parser = TraceParser(trace_file)
@@ -159,8 +198,7 @@ class TestTraceAnalyzer:
     def test_export_chrome_trace(self, temp_dir: Path) -> None:
         """Test exporting trace to Chrome Trace format."""
         trace_file = temp_dir / "trace.bin"
-        # Create a simple event
-        event_data = struct.pack("<BIII", 0x01, 12345, 0x20000100, 0)
+        event_data = make_event(0x01, 12345, 0x20000100)
         trace_file.write_bytes(event_data)
 
         parser = TraceParser(trace_file)

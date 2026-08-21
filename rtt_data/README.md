@@ -9,13 +9,13 @@ Generic data transmission library for sending structured data via SEGGER RTT fro
 - **Optional timestamping** - Add timestamps to data for time-series analysis
 - **Multiple data types** - Support for all common data types
 - **Custom structures** - Send any trivially copyable struct
-- **C++20 span support** - Modern interface for binary data
+- **C++23 span support** - Modern interface for binary data
 - **Binary protocol** - Efficient data transmission
 - **Host-side reader** - Python script to receive and decode data
 
 ## Requirements
 
-- C++17 or later (C++20 recommended for span support)
+- C++23
 - RTT Logger library
 - SEGGER RTT library
 - CMake 3.20 or later
@@ -44,19 +44,19 @@ target_link_libraries(your_application
 int main() {
     // Initialize RTT
     rtt::Logger::initialize();
-    
+
     // Get global data sender (uses RTT channel 1)
     auto& dataSender = rtt::data::getDataSender();
-    
+
     // Send different data types
     dataSender.sendInt(static_cast<int32_t>(42));
     dataSender.sendFloat(3.14159f);
     dataSender.sendString("Hello from device!");
-    
+
     // Send binary data
     uint8_t data[] = {0xDE, 0xAD, 0xBE, 0xEF};
     dataSender.sendBinary(data, sizeof(data));
-    
+
     return 0;
 }
 ```
@@ -89,7 +89,7 @@ class DataSender {
 public:
     // Constructor
     explicit DataSender(unsigned int channel = 1, Logger& logger = rtt::getLogger());
-    
+
     // Integer types
     void sendInt(int8_t value);
     void sendInt(uint8_t value);
@@ -99,26 +99,24 @@ public:
     void sendInt(uint32_t value);
     void sendInt(int64_t value);
     void sendInt(uint64_t value);
-    
+
     // Floating-point types
     void sendFloat(float value);
     void sendFloat(double value);
-    
+
     // String data
     void sendString(std::string_view str);
-    
+
     // Binary data
     void sendBinary(const void* data, size_t size);
-    
-#if __cplusplus >= 202002L
-    // C++20 span interface
+
+    // C++23 span interface
     void sendBinary(std::span<const uint8_t> data);
-#endif
-    
+
     // Generic send (for trivially copyable types)
     template<typename T>
     void send(const T& value);
-    
+
     // Timestamping control
     void setTimestamping(bool enabled);
     bool isTimestampingEnabled() const;
@@ -176,11 +174,9 @@ sender.sendString(message);
 uint8_t buffer[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
 sender.sendBinary(buffer, sizeof(buffer));
 
-// C++20 span
-#if __cplusplus >= 202002L
+// C++23 span
 std::span<const uint8_t> dataSpan(buffer, sizeof(buffer));
 sender.sendBinary(dataSpan);
-#endif
 ```
 
 ### Sending Custom Structures
@@ -222,18 +218,18 @@ sender.setTimestamping(false);
 void sendSensorReadings() {
     auto& sender = rtt::data::getDataSender();
     sender.setTimestamping(true);
-    
+
     while (true) {
         // Read sensors
         float temp = readTemperature();
         float humidity = readHumidity();
         uint32_t pressure = readPressure();
-        
+
         // Send data
         sender.sendFloat(temp);
         sender.sendFloat(humidity);
         sender.sendInt(pressure);
-        
+
         delay(1000);  // 1 second interval
     }
 }
@@ -331,7 +327,7 @@ python3 scripts/rtt_data_reader.py --backend jlink --device STM32F205RB --channe
 // Send periodic telemetry
 void sendTelemetry() {
     auto& sender = rtt::data::getDataSender();
-    
+
     sender.sendInt(getSystemUptime());
     sender.sendFloat(getCpuLoad());
     sender.sendInt(getFreeMemory());
@@ -344,7 +340,7 @@ void sendTelemetry() {
 // Log debug values
 void logDebugData(int errorCode, const char* message) {
     auto& sender = rtt::data::getDataSender();
-    
+
     sender.sendInt(static_cast<int32_t>(errorCode));
     sender.sendString(message);
 }

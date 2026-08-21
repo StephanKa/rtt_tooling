@@ -22,7 +22,7 @@ target_link_libraries(rtt_freertos_trace
 )
 
 # Set C++ standard
-target_compile_features(rtt_freertos_trace PUBLIC cxx_std_${RTT_CXX_STANDARD})
+target_compile_features(rtt_freertos_trace PUBLIC cxx_std_23)
 
 # Set compile options
 target_compile_options(rtt_freertos_trace PRIVATE

@@ -22,6 +22,9 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from rtt_reader import JLinkRttReader as SharedJLinkRttReader
+from rtt_reader import OpenOcdRttReader as SharedOpenOcdRttReader
+
 # Trace event types (must match C header)
 TRACE_EVENTS = {
     0x01: "TASK_SWITCHED_IN",
@@ -50,117 +53,34 @@ TRACE_EVENTS = {
 }
 
 
-class JLinkRttReader:
+class JLinkRttReader(SharedJLinkRttReader):
     """RTT reader using pylink for J-Link"""
 
     def __init__(self, device: str, channel: int = 1):
-        self.device = device
+        super().__init__(device=device)
         self.channel = channel
-        self.jlink = None
-
-    def connect(self) -> bool:
-        """Connect to J-Link"""
-        try:
-            import pylink
-
-            self.jlink = pylink.JLink()
-            self.jlink.open()
-            self.jlink.set_tif(pylink.enums.JLinkInterfaces.SWD)
-            self.jlink.connect(self.device)
-            self.jlink.rtt_start()
-            print(f"Connected to {self.device} via J-Link")
-            return True
-        except ImportError:
-            print("Error: pylink not installed. Install with: pip install pylink-square", file=sys.stderr)
-            return False
-        except Exception as e:
-            print(f"Error connecting to J-Link: {e}", file=sys.stderr)
-            return False
-
-    def disconnect(self):
-        """Disconnect from J-Link"""
-        if self.jlink:
-            try:
-                self.jlink.rtt_stop()
-                self.jlink.close()
-            except Exception:
-                pass
 
     def read(self) -> Optional[bytes]:
         """Read data from RTT channel"""
-        if not self.jlink:
-            return None
-        try:
-            data = self.jlink.rtt_read(self.channel, 1024)
-            return bytes(data) if data else None
-        except Exception as e:
-            print(f"Error reading RTT: {e}", file=sys.stderr)
-            return None
+        return self.read_rtt(self.channel)
 
 
-class OpenOcdRttReader:
-    """RTT reader using OpenOCD telnet interface"""
+class OpenOcdRttReader(SharedOpenOcdRttReader):
+    """Trace-channel adapter for the shared OpenOCD RTT backend."""
 
-    def __init__(self, device: str, channel: int = 1, host: str = "localhost", port: int = 19022):
+    def __init__(self, device: str, channel: int = 1, host: str = "localhost", port: int = 4444, rtt_port: int = 9090):
+        super().__init__(host=host, port=port, rtt_port=rtt_port)
         self.device = device
         self.channel = channel
-        self.host = host
-        self.port = port
-        self.telnet = None
-        self.rtt_address = None
 
-    def connect(self) -> bool:
-        """Connect to OpenOCD via telnet"""
-        # add server start
-        # new connection via telnet, grep port
-        # read data from new connection
-        try:
-            # start openocd
-            # openocd  --file st_nucleo_l4.cfg
-            import telnetlib
-
-            self.telnet = telnetlib.Telnet(self.host, self.port, timeout=5)
-
-            print(f"Connected to OpenOCD at {self.host}:{self.port}")
-            return True
-        except ImportError:
-            print("Error: telnetlib not available", file=sys.stderr)
-            return False
-        except Exception as e:
-            print(f"Error connecting to OpenOCD: {e}", file=sys.stderr)
-            print("Make sure OpenOCD is running with: openocd -f interface/stlink.cfg -f target/stm32f2x.cfg")
-            return False
-
-    def disconnect(self):
-        """Disconnect from OpenOCD"""
-        if self.telnet:
-            try:
-                self._send_command("rtt stop")
-                self.telnet.close()
-            except Exception:
-                pass
-
-    def _send_command(self, cmd: str) -> str:
-        """Send command to OpenOCD"""
-        if not self.telnet:
-            return ""
-        self.telnet.write(f"{cmd}\n".encode())
-        return self.telnet.read_until(b"> ", timeout=1).decode()
+    @property
+    def telnet(self):
+        """Compatibility alias for the former command connection attribute."""
+        return self.socket
 
     def read(self) -> Optional[bytes]:
         """Read data from RTT channel"""
-        if not self.telnet:
-            return None
-        try:
-            # Use OpenOCD RTT polling
-            response = self.telnet.read_until(b"\n")
-            if response and len(response) > 0:
-                # Filter out command echo and prompt
-                return response
-            return None
-        except Exception as e:
-            print(f"Error reading RTT: {e}", file=sys.stderr)
-            return None
+        return self.read_rtt(self.channel)
 
 
 class TraceReader:

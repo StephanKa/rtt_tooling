@@ -2,12 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(rtt_tooling VERSION 1.0.0 LANGUAGES C CXX ASM)
 
-# C++ standard selection option (C++23 required)
-set(RTT_CXX_STANDARD "23" CACHE STRING "C++ standard (23)")
-set_property(CACHE RTT_CXX_STANDARD PROPERTY STRINGS "23")
-
-# Set C++ standard
-set(CMAKE_CXX_STANDARD ${RTT_CXX_STANDARD})
+# C++23 is required by the public APIs.
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -20,13 +16,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Build options
 option(BUILD_TESTING "Build unit tests" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
+option(RTT_WARNINGS_AS_ERRORS "Treat project compiler warnings as errors" OFF)
+option(RTT_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer for native builds" OFF)
 
 # Fetch external SEGGER RTT library
 include(FetchContent)
 FetchContent_Declare(
     segger_rtt
     GIT_REPOSITORY https://github.com/SEGGERMicro/RTT.git
-    GIT_TAG        main  # Use main branch
+    GIT_TAG        4d8feab3150f86f37a9d323ddc88d6cdf5673072
 )
 FetchContent_MakeAvailable(segger_rtt)
 
@@ -43,6 +41,22 @@ target_include_directories(SEGGER_RTT
 )
 
 target_compile_features(SEGGER_RTT PUBLIC c_std_11)
+
+if(RTT_WARNINGS_AS_ERRORS)
+    add_compile_options($<$<COMPILE_LANG_AND_ID:C,CXX,GNU,Clang>:-Werror>)
+endif()
+
+if(RTT_ENABLE_SANITIZERS)
+    if(CMAKE_CROSSCOMPILING)
+        message(FATAL_ERROR "RTT_ENABLE_SANITIZERS is only supported for native builds")
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address,undefined)
+    else()
+        message(FATAL_ERROR "RTT_ENABLE_SANITIZERS requires GCC or Clang")
+    endif()
+endif()
 
 # Add subdirectories for each project
 add_subdirectory(rtt_logger)

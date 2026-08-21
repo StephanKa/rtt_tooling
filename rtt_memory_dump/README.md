@@ -7,7 +7,7 @@ Memory dump utilities for debugging and analysis via SEGGER RTT in embedded syst
 - **Multiple dump formats** - Hex, HexAscii, Binary, Decimal
 - **Flexible configuration** - Customizable bytes per line, address display
 - **Type-safe dumping** - Template-based object dumping
-- **C++20 span support** - Modern interface for memory regions
+- **C++23 span support** - Modern interface for memory regions
 - **Address/offset display** - Show memory addresses and offsets
 - **ASCII representation** - View printable characters alongside hex
 - **RTT output** - Real-time memory inspection without halting
@@ -15,7 +15,7 @@ Memory dump utilities for debugging and analysis via SEGGER RTT in embedded syst
 
 ## Requirements
 
-- C++17 or later (C++20 recommended for span support)
+- C++23
 - RTT Logger library
 - SEGGER RTT library
 - CMake 3.20 or later
@@ -41,22 +41,22 @@ target_link_libraries(your_application
 int main() {
     // Initialize RTT
     rtt::Logger::initialize();
-    
+
     // Create memory dumper
     rtt::memory_dump::MemoryDumper dumper;
-    
+
     // Dump a buffer
     uint8_t buffer[64];
     dumper.dump(buffer, sizeof(buffer), "My Buffer");
-    
+
     // Dump a structure
     struct MyData {
         uint32_t id;
         float value;
     } data = {42, 3.14f};
-    
+
     dumper.dumpObject(data, "My Data");
-    
+
     return 0;
 }
 ```
@@ -93,22 +93,20 @@ public:
     // Constructors
     explicit MemoryDumper(Logger& logger = rtt::getLogger());
     explicit MemoryDumper(const DumpConfig& config, Logger& logger = rtt::getLogger());
-    
+
     // Configuration
     void setConfig(const DumpConfig& config);
     const DumpConfig& getConfig() const;
-    
+
     // Memory dumping
     void dump(const void* data, size_t size, std::string_view description = "");
-    
+
     // Object dumping (template)
     template<typename T>
     void dumpObject(const T& object, std::string_view description = "");
-    
-#if __cplusplus >= 202002L
-    // C++20 span interface
+
+    // C++23 span interface
     void dump(std::span<const uint8_t> data, std::string_view description = "");
-#endif
 };
 ```
 
@@ -200,13 +198,11 @@ rtt::memory_dump::MemoryDumper dumper(config);
 dumper.dump(data, size, "Custom Format");
 ```
 
-### C++20 Span Interface
+### C++23 Span Interface
 
 ```cpp
-#if __cplusplus >= 202002L
 std::span<const uint8_t> dataSpan(buffer, buffer_size);
 dumper.dump(dataSpan, "Span Data");
-#endif
 ```
 
 ### Runtime Configuration Change

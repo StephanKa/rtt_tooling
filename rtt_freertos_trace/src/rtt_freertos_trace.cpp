@@ -1,12 +1,13 @@
 #include <rtt_freertos_trace/rtt_freertos_trace.hpp>
 #include <SEGGER_RTT.h>
+#include <atomic>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <utility>
 
 constexpr size_t MAX_TASK_NAME_LEN{16};
 constexpr size_t MAX_REGISTERED_TASKS{32};
-constexpr size_t TRACE_BUFFER_SIZE{512};
 constexpr size_t RTT_TRACE_BUFFER_SIZE{2048}; // RTT up-buffer size for trace channel
 
 /**
@@ -29,14 +30,29 @@ typedef struct
  */
 static struct
 {
-    uint8_t initialized;
-    uint8_t enabled;
     uint8_t channel;
     TaskRegistryEntry task_registry[MAX_REGISTERED_TASKS];
     uint8_t num_registered_tasks;
-    uint8_t trace_buffer[TRACE_BUFFER_SIZE];
-    uint16_t buffer_pos;
-} trace_state = {0, 0, 0, {}, 0, {}, 0};
+} trace_state = {0, {}, 0};
+
+static std::atomic_bool trace_initialized{false};
+static std::atomic_bool trace_enabled{false};
+static std::atomic<uint32_t> dropped_events{0};
+
+static uint32_t calculate_crc32(const uint8_t* data, size_t size)
+{
+    uint32_t crc = 0xFFFFFFFFU;
+    for (size_t index = 0; index < size; ++index)
+    {
+        crc ^= data[index];
+        for (uint8_t bit = 0; bit < 8; ++bit)
+        {
+            const uint32_t mask = 0U - (crc & 1U);
+            crc = (crc >> 1U) ^ (0xEDB88320U & mask);
+        }
+    }
+    return ~crc;
+}
 
 /**
  * @brief Get timestamp from FreeRTOS or system timer
@@ -66,23 +82,21 @@ uint32_t rtt_trace_get_timestamp()
 #else
     // Non-ARM platforms: timestamp not implemented
     // Platform-specific timestamp implementation required
-#warning "Timestamp not implemented for this platform. All timestamps will be 0."
     return 0;
 #endif
 }
 
 void rtt_trace_init(uint8_t trace_channel)
 {
-    if (trace_state.initialized)
+    bool expected = false;
+    if (!trace_initialized.compare_exchange_strong(expected, true))
     {
         return; // Already initialized
     }
 
     trace_state.channel = trace_channel;
-    trace_state.enabled = 0;
     trace_state.num_registered_tasks = 0;
-    trace_state.buffer_pos = 0;
-    trace_state.initialized = 1;
+    dropped_events.store(0, std::memory_order_relaxed);
 
     // Initialize RTT if not already done
     SEGGER_RTT_Init();
@@ -90,18 +104,18 @@ void rtt_trace_init(uint8_t trace_channel)
     // Configure a dedicated buffer for the trace channel with adequate size
     SEGGER_RTT_ConfigUpBuffer(trace_channel, "FreeRTOS Trace",
                               rtt_trace_buffer, RTT_TRACE_BUFFER_SIZE,
-                              SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL);
+                              SEGGER_RTT_MODE_NO_BLOCK_SKIP);
 
     // Send a header marker to identify trace stream
-    constexpr char header[] = "RTT_TRACE_V1\n";
+    constexpr char header[] = "RTT_TRACE_V2\n";
     SEGGER_RTT_Write(trace_channel, header, sizeof(header) - 1);
 }
 
 void rtt_trace_start(void)
 {
-    if (trace_state.initialized)
+    if (trace_initialized.load(std::memory_order_acquire))
     {
-        trace_state.enabled = 1;
+        trace_enabled.store(true, std::memory_order_release);
 
         // Send start marker
         constexpr char start_msg[] = "TRACE_START\n";
@@ -114,26 +128,22 @@ void rtt_trace_start(void)
 
 void rtt_trace_stop(void)
 {
-    if (trace_state.initialized && trace_state.enabled)
+    if (trace_enabled.exchange(false, std::memory_order_acq_rel))
     {
-        // Flush any buffered events
-        if (trace_state.buffer_pos > 0)
-        {
-            SEGGER_RTT_Write(trace_state.channel, trace_state.trace_buffer, trace_state.buffer_pos);
-            trace_state.buffer_pos = 0;
-        }
-
         // Send stop marker
         constexpr char stop_msg[] = "TRACE_STOP\n";
         SEGGER_RTT_Write(trace_state.channel, stop_msg, sizeof(stop_msg) - 1);
-
-        trace_state.enabled = 0;
     }
 }
 
 int rtt_trace_is_enabled(void)
 {
-    return trace_state.initialized && trace_state.enabled;
+    return trace_enabled.load(std::memory_order_acquire);
+}
+
+uint32_t rtt_trace_get_dropped_event_count(void)
+{
+    return dropped_events.load(std::memory_order_relaxed);
 }
 
 void rtt_trace_record_event(TraceEventType event_type, uint32_t handle, uint32_t data)
@@ -143,44 +153,27 @@ void rtt_trace_record_event(TraceEventType event_type, uint32_t handle, uint32_t
         return;
     }
 
-    TraceEvent event;
+    TraceEvent event{};
+    event.magic[0] = 'R';
+    event.magic[1] = 'T';
+    event.version = RTT_TRACE_PROTOCOL_VERSION;
     event.event_type = std::to_underlying(event_type);
+    event.dropped_events = dropped_events.exchange(0, std::memory_order_relaxed);
     event.timestamp = rtt_trace_get_timestamp();
     event.handle = handle;
     event.data = data;
+    event.crc32 = calculate_crc32(reinterpret_cast<const uint8_t*>(&event), offsetof(TraceEvent, crc32));
 
-    // Check if we have space in buffer
-    if (trace_state.buffer_pos + sizeof(TraceEvent) > TRACE_BUFFER_SIZE)
+    const auto written = SEGGER_RTT_Write(trace_state.channel, &event, sizeof(event));
+    if (written != sizeof(event))
     {
-        // Flush buffer
-        SEGGER_RTT_Write(trace_state.channel, trace_state.trace_buffer, trace_state.buffer_pos);
-        trace_state.buffer_pos = 0;
-    }
-
-    // Add event to buffer
-    memcpy(&trace_state.trace_buffer[trace_state.buffer_pos], &event, sizeof(TraceEvent));
-    trace_state.buffer_pos += sizeof(TraceEvent);
-
-    // For critical events, flush periodically to avoid buffer overflow
-    // Note: event_count is accessed from ISR context, so we protect it
-    if (event_type == TRACE_EVENT_TASK_SWITCHED_IN ||
-        event_type == TRACE_EVENT_TASK_SWITCHED_OUT ||
-        event_type == TRACE_EVENT_ISR_ENTER ||
-        event_type == TRACE_EVENT_ISR_EXIT)
-    {
-        // Simple threshold-based flush without additional state tracking
-        // Buffer flush happens automatically when buffer is full
-        if (trace_state.buffer_pos >= (TRACE_BUFFER_SIZE / 2))
-        {
-            SEGGER_RTT_Write(trace_state.channel, trace_state.trace_buffer, trace_state.buffer_pos);
-            trace_state.buffer_pos = 0;
-        }
+        dropped_events.fetch_add(event.dropped_events + 1U, std::memory_order_relaxed);
     }
 }
 
 void rtt_trace_register_task(uint32_t handle, const char* name, size_t name_len)
 {
-    if (!trace_state.initialized || trace_state.num_registered_tasks >= MAX_REGISTERED_TASKS)
+    if (!trace_initialized.load(std::memory_order_acquire) || trace_state.num_registered_tasks >= MAX_REGISTERED_TASKS)
     {
         return;
     }
@@ -197,7 +190,7 @@ void rtt_trace_register_task(uint32_t handle, const char* name, size_t name_len)
 
 void rtt_trace_send_task_registry(void)
 {
-    if (!trace_state.initialized)
+    if (!trace_initialized.load(std::memory_order_acquire))
     {
         return;
     }

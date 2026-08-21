@@ -19,7 +19,7 @@ target_link_libraries(rtt_memory_dump
         SEGGER_RTT
 )
 
-target_compile_features(rtt_memory_dump PUBLIC cxx_std_${RTT_CXX_STANDARD})
+target_compile_features(rtt_memory_dump PUBLIC cxx_std_23)
 
 # Add compile options
 target_compile_options(rtt_memory_dump PRIVATE
@@ -32,7 +32,7 @@ if(BUILD_EXAMPLES)
     add_executable(memory_dump_example
         examples/memory_dump_example.cpp
     )
-    
+
     target_link_libraries(memory_dump_example
         PRIVATE
             rtt_memory_dump

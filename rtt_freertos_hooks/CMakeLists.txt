@@ -18,7 +18,7 @@ target_link_libraries(rtt_freertos_hooks
         rtt_logger
 )
 
-target_compile_features(rtt_freertos_hooks PUBLIC cxx_std_${RTT_CXX_STANDARD})
+target_compile_features(rtt_freertos_hooks PUBLIC cxx_std_23)
 
 # Add compile options
 target_compile_options(rtt_freertos_hooks PRIVATE
@@ -31,7 +31,7 @@ if(BUILD_EXAMPLES)
     add_executable(hooks_example
         examples/hooks_example.cpp
     )
-    
+
     target_link_libraries(hooks_example
         PRIVATE
             rtt_freertos_hooks

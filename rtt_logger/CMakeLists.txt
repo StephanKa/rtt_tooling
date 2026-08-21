@@ -18,7 +18,7 @@ target_include_directories(rtt_logger
 # Link to SEGGER_RTT library to inherit include directories
 target_link_libraries(rtt_logger PUBLIC SEGGER_RTT)
 
-target_compile_features(rtt_logger PUBLIC cxx_std_${RTT_CXX_STANDARD})
+target_compile_features(rtt_logger PUBLIC cxx_std_23)
 
 # Add compile options
 target_compile_options(rtt_logger PRIVATE
@@ -31,7 +31,7 @@ if(BUILD_EXAMPLES)
     add_executable(logger_example
         examples/logger_example.cpp
     )
-    
+
     target_link_libraries(logger_example
         PRIVATE
             rtt_logger

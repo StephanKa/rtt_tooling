@@ -11,6 +11,7 @@ import argparse
 import struct
 import sys
 import time
+import zlib
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, Optional, Tuple
@@ -38,18 +39,22 @@ class DataHeader:
     """Header for data packets"""
 
     magic: bytes
+    version: int
     data_type: DataType
-    reserved: int
     size: int
     timestamp: int
+    sequence: int
+    payload_crc32: int
 
 
 class RttDataReader:
     """Reader for RTT data packets"""
 
     MAGIC_BYTES = b"RD"
-    HEADER_SIZE = 12  # 2 (magic) + 1 (type) + 1 (reserved) + 4 (size) + 4 (timestamp)
-    HEADER_FORMAT = "<2sBBII"  # Little-endian: 2 bytes, byte, byte, uint32, uint32
+    PROTOCOL_VERSION = 2
+    MAX_PAYLOAD_SIZE = 256
+    HEADER_FORMAT = "<2sBBIIII"
+    HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
     # Type format strings for struct.unpack
     TYPE_FORMATS = {
@@ -90,12 +95,22 @@ class RttDataReader:
             return None
 
         try:
-            magic, data_type, reserved, size, timestamp = struct.unpack(self.HEADER_FORMAT, data[: self.HEADER_SIZE])
+            magic, version, data_type, size, timestamp, sequence, payload_crc32 = struct.unpack(self.HEADER_FORMAT, data[: self.HEADER_SIZE])
 
             # Validate magic bytes
             if magic != self.MAGIC_BYTES:
                 if self.verbose:
                     print(f"Invalid magic bytes: {magic.hex()}", file=sys.stderr)
+                return None
+
+            if version != self.PROTOCOL_VERSION:
+                if self.verbose:
+                    print(f"Unsupported protocol version: {version}", file=sys.stderr)
+                return None
+
+            if size > self.MAX_PAYLOAD_SIZE:
+                if self.verbose:
+                    print(f"Payload exceeds {self.MAX_PAYLOAD_SIZE} bytes: {size}", file=sys.stderr)
                 return None
 
             # Validate data type
@@ -106,7 +121,7 @@ class RttDataReader:
                     print(f"Invalid data type: {data_type}", file=sys.stderr)
                 return None
 
-            return DataHeader(magic, data_type, reserved, size, timestamp)
+            return DataHeader(magic, version, data_type, size, timestamp, sequence, payload_crc32)
 
         except struct.error as e:
             if self.verbose:
@@ -185,11 +200,21 @@ class RttDataReader:
         Returns:
             Tuple of (parsed_value, bytes_consumed)
         """
-        # Parse header
+        if len(data) < len(self.MAGIC_BYTES):
+            return None, 0
+        if not data.startswith(self.MAGIC_BYTES):
+            self.error_count += 1
+            next_magic = data.find(self.MAGIC_BYTES, 1)
+            if next_magic >= 0:
+                return None, next_magic
+            return None, max(1, len(data) - 1)
+        if len(data) < self.HEADER_SIZE:
+            return None, 0
+
         header = self.parse_header(data)
         if header is None:
             self.error_count += 1
-            return None, 0
+            return None, 1
 
         # Check if we have enough data for payload
         total_size = self.HEADER_SIZE + header.size
@@ -199,6 +224,10 @@ class RttDataReader:
 
         # Parse data payload
         payload = data[self.HEADER_SIZE : total_size]
+        if zlib.crc32(payload) != header.payload_crc32:
+            self.error_count += 1
+            return None, total_size
+
         value = self.parse_data(header, payload)
 
         if value is not None:

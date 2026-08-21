@@ -85,7 +85,7 @@ jobs:
 
     - name: Configure CMake (C++23)
       run: |
-        cmake --preset default
+        cmake --preset default -DRTT_WARNINGS_AS_ERRORS=ON
 
     - name: Build
       run: |
@@ -106,7 +106,7 @@ jobs:
 
     - name: Configure CMake with testing (C++23)
       run: |
-        cmake --preset testing
+        cmake --preset testing -DRTT_WARNINGS_AS_ERRORS=ON -DRTT_ENABLE_SANITIZERS=ON
 
     - name: Build tests
       run: |
@@ -118,8 +118,13 @@ jobs:
         ctest --output-on-failure --verbose
 
   python-lint-and-test:
-    name: Python Linting and Testing
+    name: Python ${{ matrix.python-version }} Linting and Testing
     runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.12']
 
     permissions:
       contents: read
@@ -131,7 +136,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python-version }}
 
     - name: Install uv
       run: |

@@ -8,7 +8,7 @@ namespace rtt::test
     protected:
         void SetUp() override
         {
-            Logger::initialize();
+            (void)Logger::initialize();
         }
     };
 

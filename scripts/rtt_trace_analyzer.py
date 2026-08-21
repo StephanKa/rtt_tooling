@@ -16,6 +16,7 @@ import argparse
 import json
 import struct
 import sys
+import zlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -61,20 +62,22 @@ class TraceEvent:
     timestamp: int
     handle: int
     data: int
+    dropped_events: int = 0
 
 
 class TraceParser:
     """Parse binary trace data"""
 
-    # Struct format: B = uint8, I = uint32 (little-endian)
-    EVENT_FORMAT = "<BIII"
+    MAGIC_BYTES = b"RT"
+    PROTOCOL_VERSION = 2
+    EVENT_FORMAT = "<2sBBIIIII"
     EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
 
     def __init__(self, trace_file: Path):
         self.trace_file = trace_file
         self.events: List[TraceEvent] = []
         self.task_registry: Dict[int, str] = {}
-        self.cpu_frequency = 168000000  # STM32F205 default (168 MHz)
+        self.cpu_frequency = 120000000  # STM32F205 maximum clock
 
     def parse(self) -> bool:
         """Parse trace file"""
@@ -134,26 +137,37 @@ class TraceParser:
     def _parse_binary_events(self, content: bytes):
         """Parse binary trace events"""
         offset = 0
+        timestamp_epoch = 0
+        previous_timestamp = None
 
         while offset + self.EVENT_SIZE <= len(content):
-            try:
-                # Try to extract an event
-                event_bytes = content[offset : offset + self.EVENT_SIZE]
-
-                # Unpack event
-                event_type, timestamp, handle, data = struct.unpack(self.EVENT_FORMAT, event_bytes)
-
-                # Validate event type
-                if event_type in TRACE_EVENTS:
-                    event = TraceEvent(event_type=event_type, event_name=TRACE_EVENTS[event_type], timestamp=timestamp, handle=handle, data=data)
-                    self.events.append(event)
-                    offset += self.EVENT_SIZE
-                else:
-                    # Skip this byte and try next position
-                    offset += 1
-            except struct.error:
-                # Not enough bytes for a full event
+            magic_offset = content.find(self.MAGIC_BYTES, offset)
+            if magic_offset < 0 or magic_offset + self.EVENT_SIZE > len(content):
                 break
+
+            event_bytes = content[magic_offset : magic_offset + self.EVENT_SIZE]
+            magic, version, event_type, dropped, timestamp, handle, data, expected_crc = struct.unpack(self.EVENT_FORMAT, event_bytes)
+            actual_crc = zlib.crc32(event_bytes[:-4])
+
+            if magic != self.MAGIC_BYTES or version != self.PROTOCOL_VERSION or event_type not in TRACE_EVENTS or actual_crc != expected_crc:
+                offset = magic_offset + 1
+                continue
+
+            if previous_timestamp is not None and timestamp < previous_timestamp and previous_timestamp - timestamp > 0x80000000:
+                timestamp_epoch += 1 << 32
+            previous_timestamp = timestamp
+
+            self.events.append(
+                TraceEvent(
+                    event_type=event_type,
+                    event_name=TRACE_EVENTS[event_type],
+                    timestamp=timestamp_epoch + timestamp,
+                    handle=handle,
+                    data=data,
+                    dropped_events=dropped,
+                )
+            )
+            offset = magic_offset + self.EVENT_SIZE
 
     def get_task_name(self, handle: int) -> str:
         """Get task name from handle"""
@@ -627,7 +641,7 @@ def main():
     parser.add_argument("--export-json", type=Path, help="Export trace data to JSON file")
     parser.add_argument("--export-chrome-trace", type=Path, help="Export trace data to Chrome Trace format (viewable in chrome://tracing)")
     parser.add_argument("--export-perfetto", type=Path, help="Export trace data to Perfetto format (viewable in https://ui.perfetto.dev/)")
-    parser.add_argument("--cpu-freq", type=int, default=120000000, help="CPU frequency in Hz (default: 128000000 for STM32F205)")
+    parser.add_argument("--cpu-freq", type=int, default=120000000, help="CPU frequency in Hz (default: 120000000 for STM32F205)")
 
     args = parser.parse_args()
 

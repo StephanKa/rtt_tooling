@@ -10,12 +10,12 @@ Code benchmarking and performance measurement library using SEGGER RTT for embed
 - **RTT reporting** - Real-time performance data via RTT
 - **Flexible iteration counts** - Configurable repetitions for stable results
 - **Template-based** - Works with any callable (functions, lambdas, functors)
-- **C++20 concepts** - Compile-time validation of benchmarkable functions (when available)
+- **C++23 concepts** - Compile-time validation of benchmarkable functions
 - **Minimal overhead** - Optimized timing measurement
 
 ## Requirements
 
-- C++20 for concepts
+- C++23
 - RTT Logger library
 - SEGGER RTT library
 - CMake 3.20 or later
@@ -42,10 +42,10 @@ target_link_libraries(your_application
 int main() {
     // Initialize RTT
     rtt::Logger::initialize();
-    
+
     // Create benchmark
     rtt::benchmark::Benchmark bench("MyFunction");
-    
+
     // Run and automatically report results
     bench.runAndReport<100>([]() {
         // Code to benchmark
@@ -53,7 +53,7 @@ int main() {
             volatile int x = i * i;
         }
     });  // Run 100 iterations
-    
+
     return 0;
 }
 ```
@@ -67,15 +67,15 @@ class Benchmark {
 public:
     // Constructor
     explicit Benchmark(std::string_view name, Logger& logger = rtt::getLogger());
-    
+
     // Run benchmark and get statistics
     template<size_t Iterations, typename Func>
     BenchmarkStats run(Func&& func);
-    
+
     // Run benchmark and automatically report via RTT
     template<size_t Iterations, typename Func>
     void runAndReport(Func&& func);
-    
+
     // Report statistics via RTT
     void report(const BenchmarkStats& stats);
 };
@@ -100,7 +100,7 @@ class ScopedTimer {
 public:
     // Constructor - starts timing
     explicit ScopedTimer(std::string_view name, Logger& logger = rtt::getLogger());
-    
+
     // Destructor - stops timing and reports via RTT
     ~ScopedTimer();
 };
@@ -141,12 +141,12 @@ bench.runAndReport<100>([]() {
 void processData() {
     {
         rtt::benchmark::ScopedTimer timer("DataProcessing");
-        
+
         // All code in this scope is timed
         parseInput();
         transform();
         writeOutput();
-        
+
     }  // Timer automatically reports when scope exits
 }
 ```
@@ -180,7 +180,7 @@ if (statsA.mean < statsB.mean) {
 for (size_t size : {100, 1000, 10000}) {
     std::string name = "Sort_" + std::to_string(size);
     rtt::benchmark::Benchmark bench(name);
-    
+
     bench.runAndReport<50>([&]() {
         sort(data, size);
     });
@@ -234,13 +234,13 @@ cmake --build --preset arm-stm32f205
 6. **Measure what matters**: Focus on actual performance bottlenecks
 7. **Compare fairly**: Use same iteration count when comparing
 
-## C++20 Features
+## C++23 Features
 
-When using C++20, the library uses concepts for type safety:
+The library uses concepts for type safety:
 
 ```cpp
 template<typename F>
-concept BenchmarkableFunction = std::invocable<F> && 
+concept BenchmarkableFunction = std::invocable<F> &&
                                 std::same_as<void, std::invoke_result_t<F>>;
 ```
 
@@ -301,7 +301,7 @@ rtt::benchmark::Benchmark bench("Custom", customLogger);
 TEST(PerformanceTest, SortSpeed) {
     rtt::benchmark::Benchmark bench("SortTest");
     auto stats = bench.run<100>(sortFunction);
-    
+
     // Assert performance requirements
     EXPECT_LT(stats.mean, 500);  // Must be under 500µs
 }

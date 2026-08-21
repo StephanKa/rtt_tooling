@@ -14,7 +14,7 @@
 int main()
 {
     // Initialize RTT logger (required for hooks to output via RTT)
-    rtt::Logger::initialize();
+    (void)rtt::Logger::initialize();
     auto& logger = rtt::getLogger();
     logger.setMinLevel(rtt::LogLevel::Info);
 

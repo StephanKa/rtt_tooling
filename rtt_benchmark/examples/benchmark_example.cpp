@@ -37,7 +37,7 @@ namespace
 int main()
 {
     // Initialize RTT
-    rtt::Logger::initialize();
+    (void)rtt::Logger::initialize();
 
     // Get global logger instance
     auto& logger = rtt::getLogger();

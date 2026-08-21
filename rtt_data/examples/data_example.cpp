@@ -10,7 +10,7 @@
 int main()
 {
     // Initialize RTT logger
-    rtt::Logger::initialize();
+    (void)rtt::Logger::initialize();
     auto& logger = rtt::getLogger();
     logger.setMinLevel(rtt::LogLevel::Info);
 

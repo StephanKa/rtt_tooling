@@ -14,7 +14,7 @@ Unit testing framework with RTT output support for embedded systems, integrating
 
 ## Requirements
 
-- C++17 or later
+- C++23
 - GoogleTest (automatically fetched by CMake when BUILD_TESTING=ON)
 - RTT Logger library
 - SEGGER RTT library
@@ -47,22 +47,22 @@ target_link_libraries(your_tests
 int main() {
     // Initialize RTT
     rtt::Logger::initialize();
-    
+
     // Demonstrate RTT capture
     rtt::unittest::RttCapture capture;
     capture.startCapture();
-    
+
     auto& logger = rtt::getLogger();
     logger.info("Test message");
-    
+
     capture.stopCapture();
-    
+
     // Verify output
     if (capture.containsMessage("Test message")) {
         logger.info("Test passed!");
         return 0;
     }
-    
+
     return 1;
 }
 ```
@@ -81,10 +81,10 @@ TEST(MyTest, BasicAssertion) {
 int main(int argc, char** argv) {
     // Initialize RTT for test output
     rtt::Logger::initialize();
-    
+
     // Initialize GoogleTest
     testing::InitGoogleTest(&argc, argv);
-    
+
     // Run tests - output goes to RTT
     return RUN_ALL_TESTS();
 }
@@ -255,7 +255,7 @@ protected:
     void SetUp() override {
         // Setup before each test
     }
-    
+
     void TearDown() override {
         // Cleanup after each test
     }
@@ -276,7 +276,7 @@ TEST_P(MyParamTest, TestValues) {
     EXPECT_TRUE(isValid(value));
 }
 
-INSTANTIATE_TEST_SUITE_P(Values, MyParamTest, 
+INSTANTIATE_TEST_SUITE_P(Values, MyParamTest,
     ::testing::Values(1, 2, 3, 5, 7, 11));
 ```
 

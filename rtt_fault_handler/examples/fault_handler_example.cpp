@@ -21,7 +21,7 @@
 void triggerDivideByZero()
 {
     constexpr int x = 1;
-    constexpr int y = 0;
+    volatile int y = 0;
     [[maybe_unused]] const int z = x / y; // Divide by zero
 }
 

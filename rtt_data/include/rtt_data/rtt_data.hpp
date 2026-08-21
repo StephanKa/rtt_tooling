@@ -40,14 +40,18 @@ namespace rtt::data
     struct DataHeader
     {
         uint8_t magic[2]; // Magic bytes: 'R', 'D' (RTT Data)
+        uint8_t version; // Protocol version
         DataType type; // Data type
-        uint8_t reserved; // Reserved for future use
         uint32_t size; // Data size in bytes
         uint32_t timestamp; // Timestamp (optional, 0 if not used)
+        uint32_t sequence; // Monotonic packet sequence number
+        uint32_t payloadCrc32; // CRC-32 of the payload
     } __attribute__((packed));
 
     static constexpr uint8_t DATA_MAGIC_0 = 'R';
     static constexpr uint8_t DATA_MAGIC_1 = 'D';
+    static constexpr uint8_t DATA_PROTOCOL_VERSION = 2;
+    static constexpr size_t DATA_MAX_PAYLOAD_SIZE = 256;
 
     /// C++23 concept: trivially copyable types that can be sent over RTT
     template <typename T>
@@ -69,7 +73,7 @@ namespace rtt::data
          * @param use_timestamps Enable automatic timestamping (default: false)
          */
         explicit DataSender(uint32_t channel = 1, bool use_timestamps = false) noexcept
-            : m_channel(channel), m_useTimestamps(use_timestamps), m_timestampCounter(0)
+            : m_channel(channel), m_useTimestamps(use_timestamps), m_timestampCounter(0), m_sequence(0)
         {
         }
 
@@ -166,6 +170,7 @@ namespace rtt::data
         uint32_t m_channel;
         bool m_useTimestamps;
         uint32_t m_timestampCounter;
+        uint32_t m_sequence;
 
         /**
          * @brief Get timestamp for current data packet
@@ -188,6 +193,8 @@ namespace rtt::data
          * @return Number of bytes sent (including header)
          */
         size_t sendWithHeader(DataType type, const void* data, size_t size) noexcept;
+
+        static uint32_t calculateCrc32(const uint8_t* data, size_t size) noexcept;
 
         /**
          * @brief Get DataType enum for integral types

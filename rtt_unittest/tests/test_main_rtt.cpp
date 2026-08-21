@@ -11,7 +11,7 @@
 int main(int argc, char** argv)
 {
     // Initialize RTT
-    rtt::Logger::initialize();
+    (void)rtt::Logger::initialize();
 
     // Get logger instance
     auto& logger = rtt::getLogger();

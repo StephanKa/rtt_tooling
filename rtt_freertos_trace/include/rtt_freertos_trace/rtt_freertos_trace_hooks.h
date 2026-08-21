@@ -59,11 +59,17 @@ typedef enum
  */
 typedef struct __attribute__((packed))
 {
+    uint8_t magic[2];
+    uint8_t version;
     uint8_t event_type;
+    uint32_t dropped_events;
     uint32_t timestamp;
     uint32_t handle;
     uint32_t data;
+    uint32_t crc32;
 } TraceEvent;
+
+#define RTT_TRACE_PROTOCOL_VERSION 2U
 
 /**
  * @brief Initialize the FreeRTOS trace system
@@ -88,6 +94,11 @@ void rtt_trace_stop(void);
  * @return 1 if enabled, 0 otherwise
  */
 int rtt_trace_is_enabled(void);
+
+/**
+ * @brief Return the number of events that could not be written.
+ */
+uint32_t rtt_trace_get_dropped_event_count(void);
 
 /**
  * @brief Record a trace event

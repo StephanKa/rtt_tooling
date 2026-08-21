@@ -1,5 +1,7 @@
 """Unit tests for rtt_reader.py."""
 
+from unittest.mock import Mock, patch
+
 from rtt_reader import JLinkRttReader, OpenOcdRttReader, RttBackend, RttReaderApp
 
 
@@ -45,6 +47,31 @@ class TestOpenOcdRttReader:
         reader = OpenOcdRttReader()
         data = reader.read_rtt()
         assert data is None
+
+    def test_read_until_fragmented_prompt(self) -> None:
+        """OpenOCD command responses may arrive across multiple socket reads."""
+        reader = OpenOcdRttReader()
+        reader.socket = Mock()
+        reader.socket.recv.side_effect = [b"rtt start\r\n", b"> "]
+
+        assert reader._read_until_prompt() == "rtt start\r\n"
+
+    def test_read_rtt_uses_raw_data_socket(self) -> None:
+        """RTT bytes come from the dedicated server socket, not command output."""
+        reader = OpenOcdRttReader(rtt_port=9095)
+        reader.socket = Mock()
+        reader._connected = True
+        data_socket = Mock()
+        data_socket.recv.return_value = b"raw-rtt"
+
+        with patch.object(reader, "_send_command", return_value="") as send_command, patch(
+            "rtt_reader.socket.create_connection", return_value=data_socket
+        ) as create_connection:
+            data = reader.read_rtt(channel=2)
+
+        assert data == b"raw-rtt"
+        send_command.assert_called_once_with("rtt server start 9095 2")
+        create_connection.assert_called_once_with(("localhost", 9095), timeout=5.0)
 
 
 class TestJLinkRttReader:

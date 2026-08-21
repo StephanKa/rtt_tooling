@@ -18,7 +18,7 @@ target_link_libraries(rtt_fault_handler
         SEGGER_RTT
 )
 
-target_compile_features(rtt_fault_handler PUBLIC cxx_std_${RTT_CXX_STANDARD})
+target_compile_features(rtt_fault_handler PUBLIC cxx_std_23)
 
 # Add compile options
 target_compile_options(rtt_fault_handler PRIVATE
@@ -31,7 +31,7 @@ if(BUILD_EXAMPLES)
     add_executable(fault_handler_example
         examples/fault_handler_example.cpp
     )
-    
+
     target_link_libraries(fault_handler_example
         PRIVATE
             rtt_fault_handler

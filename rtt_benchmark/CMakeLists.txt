@@ -19,7 +19,7 @@ target_link_libraries(rtt_benchmark
         SEGGER_RTT
 )
 
-target_compile_features(rtt_benchmark PUBLIC cxx_std_${RTT_CXX_STANDARD})
+target_compile_features(rtt_benchmark PUBLIC cxx_std_23)
 
 # Add compile options
 target_compile_options(rtt_benchmark PRIVATE
@@ -32,7 +32,7 @@ if(BUILD_EXAMPLES)
     add_executable(benchmark_example
         examples/benchmark_example.cpp
     )
-    
+
     target_link_libraries(benchmark_example
         PRIVATE
             rtt_benchmark
